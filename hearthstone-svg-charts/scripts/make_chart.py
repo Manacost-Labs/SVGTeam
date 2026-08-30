@@ -674,11 +674,14 @@ def font_face_style():
 
 def logo_tag(H):
     p = DU / "site-logo.png.txt"
-    if not p.exists():
+    png = ROOT / "assets" / "site-logo.png"
+    if not p.exists() or not png.exists():
         return ""
-    lw, lh = 80, 58
-    return (f'<image href="{p.read_text().strip()}" x="{754-lw}" y="{H-28-lh}" '
-            f'width="{lw}" height="{lh}"/>')
+    iw, ih = png_size(png)
+    lw = min(132, 58 * iw / ih)      # fit the 52-unit bottom band, keep aspect
+    lh = lw * ih / iw
+    return (f'<image href="{p.read_text().strip()}" x="{754-lw:.0f}" y="{H-26-lh:.0f}" '
+            f'width="{lw:.1f}" height="{lh:.1f}"/>')
 
 def build(spec):
     t = spec.get("type")
