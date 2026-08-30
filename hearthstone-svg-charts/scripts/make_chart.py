@@ -876,7 +876,45 @@ def r_stackbars(spec):
                     f'<rect x="{X0+1}" y="{y+1}" width="{TRACK-2}" height="{BH-2}" rx="5" fill="none" stroke="url(#goldEdge)" stroke-width="0.8" opacity="0.35"/>')
     return 800, y_first + len(rows) * STEP - GAP + 78, "\n".join(body), "Каждая строка = 100%"
 
-RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
+
+def r_author(spec):
+    """Карточка автора для подписи статей: аватар, имя, роль, статы-пилюли."""
+    d = spec["data"]
+    H = 236
+    body = []
+    # аватар в двойном золотом кольце
+    ax, ay, r = 118, H / 2, 58
+    uri = icon_uri(d["avatar"], photo=True) if d.get("avatar") else None
+    if uri:
+        body.append(f'<defs><clipPath id="avclip"><circle cx="{ax}" cy="{ay}" r="{r}"/></clipPath></defs>'
+                    f'<circle cx="{ax}" cy="{ay}" r="{r+7}" fill="#5d0d13" opacity="0.25"/>'
+                    f'<image href="{uri}" x="{ax-r}" y="{ay-r}" width="{2*r}" height="{2*r}" '
+                    f'preserveAspectRatio="xMidYMid slice" clip-path="url(#avclip)"/>')
+    body.append(f'<circle cx="{ax}" cy="{ay}" r="{r+2}" fill="none" stroke="url(#goldEdge)" stroke-width="4"/>'
+                f'<circle cx="{ax}" cy="{ay}" r="{r+5.5}" fill="none" stroke="#5d3f12" stroke-width="1.2"/>')
+    tx = 214
+    icon = f' {icon_tag(d["icon"], tx + text_w(d["name"], 26, serif=True) + 10, 52, 28)}' if d.get("icon") else ""
+    body.append(f'<text x="{tx}" y="76" font-family="{SERIF}" font-size="26" fill="{INK}" '
+                f'letter-spacing="0.4">{serif_text(d["name"])}</text>{icon}')
+    if d.get("role"):
+        body.append(f'<text x="{tx}" y="100" font-family="Georgia, serif" font-style="italic" '
+                    f'font-size="14.5" fill="#8d171d">{esc(d["role"])}</text>')
+    if d.get("tagline"):
+        for i, ln in enumerate(wrap(d["tagline"], 14, 520, 2)):
+            body.append(f'<text x="{tx}" y="{126 + i*19}" font-family="{SANS}" font-size="14" '
+                        f'fill="{INK}">{esc(ln)}</text>')
+    x = tx
+    for st in (d.get("stats") or [])[:3]:
+        vw = max(text_w(st["value"], 15, serif=True), text_w(st["label"], 11)) + 26
+        body.append(f'<rect x="{x}" y="164" width="{vw:.0f}" height="42" rx="9" fill="#5d0d13" opacity="0.92"/>'
+                    f'<rect x="{x}" y="164" width="{vw:.0f}" height="42" rx="9" fill="url(#bevelTop)" opacity="0.5"/>'
+                    f'<rect x="{x}" y="164" width="{vw:.0f}" height="42" rx="9" fill="none" stroke="url(#goldEdge)" stroke-width="1"/>'
+                    f'<text x="{x+vw/2:.0f}" y="{164+19}" text-anchor="middle" font-family="{SERIF}" font-size="15" fill="{CREAM}">{serif_text(st["value"])}</text>'
+                    f'<text x="{x+vw/2:.0f}" y="{164+34}" text-anchor="middle" font-family="{SANS}" font-size="11" fill="#d9ab49">{esc(st["label"])}</text>')
+        x += vw + 14
+    return 800, H, "\n".join(body), None
+
+RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
              "beforeafter": r_beforeafter, "matchup": r_matchup, "badge": r_badge,
              "timeline": r_timeline, "digest": r_digest}
 
@@ -924,12 +962,12 @@ def build(spec):
     t = spec.get("type")
     if t not in RENDERERS:
         die(f"неизвестный type '{t}'; доступны: {', '.join(RENDERERS)}")
-    finish = spec.get("finish", "quiet" if t in ("badge", "digest") else "parade")
+    finish = spec.get("finish", "quiet" if t in ("badge", "digest", "author") else "parade")
     W, H, content, scale_note = RENDERERS[t](spec)
     if t == "badge":
         return doc(W, H, spec.get("title", "Бейдж"), font_face_style() + "\n" + content)
     logo = ""
-    if spec.get("logo", True):
+    if spec.get("logo", t != "author"):
         H += 52                     # bottom band for the site logo
         logo = logo_tag(H)
     fmt = spec.get("format", "wide")
@@ -943,7 +981,7 @@ def build(spec):
         content = f'<g transform="translate(0 {pad/2:.0f})">{content}</g>'
         H = target
         logo = logo_tag(H) if logo else ""
-    tb, _ = title_block(spec)
+    tb, _ = ("", 96) if t == "author" else title_block(spec)
     body = "\n".join([font_face_style(), frame(H, spec.get("frame", "vector"), finish),
                       tb, content, footer(spec, H, scale_note or ""), logo])
     return doc(W, H, spec.get("title", "График"), body)

@@ -222,6 +222,26 @@ def cmd_bg_radar(args):
             "footer": f"Шкалы нормированы по всем {len(items)} героям · {FOOT}"}
     emit(spec, f"bg-radar-{args.hero.lower().replace(' ', '-').replace(',', '')}", args)
 
+def cmd_arena_legendaries(args):
+    d = get(API + "/datasets/hsreplay_arena_legendaries")
+    groups = d["data"]["structured"]["groups"]
+    rows = []
+    for g in groups:
+        try:
+            wr = float(str(g["winrate"]).rstrip("%"))
+        except (TypeError, ValueError):
+            continue
+        card = g["legendary_card"] or g["key_card"]
+        cls = (g.get("class") or card.get("cardClass") or "").lower().replace(" ", "")
+        rows.append({"label": card["name"], "value": round(wr, 1),
+                     **({"icon": cls} if cls and cls != "neutral" else {"icon": "neutral"})})
+    top = sorted(rows, key=lambda r: -r["value"])[: args.top]
+    spec = {"type": "bars", "title": f"Топ-{len(top)} легендарок Арены",
+            "subtitle": f"подземная Арена · за 4 дня · {today_ru()}", "theme": "arena",
+            "data": top,
+            "footer": f"винрейт колод, взявших карту · всего легендарок: {len(rows)} · источник: hearthpulse.net"}
+    emit(spec, "arena-legendaries", args)
+
 def cmd_digest(args):
     posts = get(f"{WP}/posts?per_page={args.limit}&_fields=title,date,featured_media")
     cutoff = datetime.date.today() - datetime.timedelta(days=args.days)
@@ -279,6 +299,7 @@ def main():
     p = sub.add_parser("arena-donuts"); p.set_defaults(fn=cmd_arena_donuts)
     p = sub.add_parser("bg-tiers"); p.add_argument("--mode", default="solo", choices=["solo", "duos"]); p.add_argument("--top-a", type=int, default=5); p.set_defaults(fn=cmd_bg_tiers)
     p = sub.add_parser("bg-radar"); p.add_argument("--hero", required=True); p.add_argument("--mode", default="solo", choices=["solo", "duos"]); p.set_defaults(fn=cmd_bg_radar)
+    p = sub.add_parser("arena-legendaries"); p.add_argument("--top", type=int, default=10); p.set_defaults(fn=cmd_arena_legendaries)
     p = sub.add_parser("digest"); p.add_argument("--days", type=int, default=7); p.add_argument("--limit", type=int, default=12); p.set_defaults(fn=cmd_digest)
 
     args = ap.parse_args()

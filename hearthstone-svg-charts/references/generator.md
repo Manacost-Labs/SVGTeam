@@ -10,6 +10,7 @@ python3 scripts/from_api.py scatter                         # карта мет�
 python3 scripts/from_api.py history --archetype "Pirate Warrior"
 python3 scripts/from_api.py arena-tiers / arena-donuts
 python3 scripts/from_api.py bg-tiers / bg-radar --hero "Cariel Roame"
+python3 scripts/from_api.py arena-legendaries --top 10
 python3 scripts/from_api.py digest --days 7
 ```
 
@@ -101,6 +102,13 @@ python3 scripts/export_png.py chart.svg          # → PNG 2x, прозрачн�
 **badge** — компактная врезка 320×132 в золочёной рамке deck-border, без заголовочной плашки. Для лидов статей и соцсетей.
 ```json
 "data": {"value": "67.3%", "label": "винрейт за 320 игр", "icon": "paladin"}
+```
+
+**author** — карточка автора для подписи статей: круглый аватар в золотом кольце, имя (Belwe), роль, тэглайн до 2 строк, до 3 стат-пилюль. Без заголовочной плашки и логотипа, finish quiet.
+```json
+"data": {"name": "Zulut", "role": "автор и редактор hs-manacost.ru",
+         "avatar": "/путь/к/фото.jpg", "tagline": "Пишу про Арену и Поля сражений.",
+         "stats": [{"value": "480+", "label": "статей"}, {"value": "топ-1%", "label": "Арена"}]}
 ```
 
 **scatter** — карта меты по методологии hearthpulse: X — винрейт, Y — популярность, размер точки — число игр, цвет — класс (палитра классов под пергамент), пунктир на 50%. Подписи топ-N (по играм) с авторазруливанием коллизий.
