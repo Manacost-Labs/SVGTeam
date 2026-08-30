@@ -672,6 +672,14 @@ def font_face_style():
     return (f'<style>@font-face{{font-family:"HSDisplay";'
             f'src:url(data:font/woff2;base64,{b64}) format("woff2");}}</style>')
 
+def logo_tag(H):
+    p = DU / "site-logo.png.txt"
+    if not p.exists():
+        return ""
+    lw, lh = 80, 58
+    return (f'<image href="{p.read_text().strip()}" x="{754-lw}" y="{H-28-lh}" '
+            f'width="{lw}" height="{lh}"/>')
+
 def build(spec):
     t = spec.get("type")
     if t not in RENDERERS:
@@ -680,9 +688,13 @@ def build(spec):
     W, H, content, scale_note = RENDERERS[t](spec)
     if t == "badge":
         return doc(W, H, spec.get("title", "Бейдж"), font_face_style() + "\n" + content)
+    logo = ""
+    if spec.get("logo", True):
+        H += 52                     # bottom band for the site logo
+        logo = logo_tag(H)
     tb, _ = title_block(spec)
     body = "\n".join([font_face_style(), frame(H, spec.get("frame", "vector"), finish),
-                      tb, content, footer(spec, H, scale_note or "")])
+                      tb, content, footer(spec, H, scale_note or ""), logo])
     return doc(W, H, spec.get("title", "График"), body)
 
 def main():
