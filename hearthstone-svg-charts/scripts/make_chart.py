@@ -45,6 +45,11 @@ SERIES = ["#8d171d", "#8f536d", "#2f7a3e", "#b98a2f", "#735e49", "#3f6f6a"]
 POS, NEG = "#2f7a3e", "#a33a3a"
 GOLD = "#d9ab49"
 MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+CLASS_COLORS = {  # стандартные цвета классов, затемнённые под пергамент
+    "druid": "#a05a10", "hunter": "#5e7a2f", "mage": "#2a7fa5", "paladin": "#c9722f",
+    "priest": "#8a8578", "rogue": "#b0a231", "shaman": "#1e4e8c", "warlock": "#6a4a8c",
+    "warrior": "#8c3a2a", "deathknight": "#3f6f6a", "demonhunter": "#2f7a5c",
+    "neutral": "#735e49"}
 
 # ---------------------------------------------------------------- helpers
 
@@ -687,7 +692,103 @@ def r_digest_compact(spec):
         y += PAD
     return 800, H, "\n".join(body), ""
 
-RENDERERS = {"bars": r_bars, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
+
+def r_scatter(spec):
+    """Карта меты: X — винрейт, Y — популярность (методология hearthpulse)."""
+    rows = spec["data"]
+    H = 560
+    PX0, PX1, PY1, PY0 = 96, 736, 138, H - 96          # PY0 низ (y=0 популярности)
+    xs = [r["x"] for r in rows]
+    xmin = spec.get("vmin", math.floor(min(xs) - 2))
+    xmax = spec.get("vmax", math.ceil(max(xs) + 2))
+    ymax = spec.get("ymax", math.ceil(max(r["y"] for r in rows) / 5) * 5)
+    def XY(r):
+        x = PX0 + (PX1 - PX0) * (r["x"] - xmin) / (xmax - xmin)
+        y = PY0 - (PY0 - PY1) * r["y"] / ymax
+        return x, y
+    body = []
+    for gv in nice_ticks(xmin, xmax):
+        gx = PX0 + (PX1 - PX0) * (gv - xmin) / (xmax - xmin)
+        body.append(f'<line x1="{gx:.1f}" y1="{PY1}" x2="{gx:.1f}" y2="{PY0}" stroke="{MUTED}" stroke-width="1" opacity="0.22"/>'
+                    f'<text x="{gx:.1f}" y="{PY0+22}" text-anchor="middle" font-family="{SANS}" font-size="13" fill="{MUTED}">{gv:g}%</text>')
+    for gv in nice_ticks(0, ymax):
+        gy = PY0 - (PY0 - PY1) * gv / ymax
+        body.append(f'<line x1="{PX0}" y1="{gy:.1f}" x2="{PX1}" y2="{gy:.1f}" stroke="{MUTED}" stroke-width="1" opacity="0.22"/>'
+                    f'<text x="{PX0-10}" y="{gy+4:.1f}" text-anchor="end" font-family="{SANS}" font-size="13" fill="{MUTED}">{gv:g}%</text>')
+    if xmin < 50 < xmax:
+        g50 = PX0 + (PX1 - PX0) * (50 - xmin) / (xmax - xmin)
+        body.append(f'<line x1="{g50:.1f}" y1="{PY1}" x2="{g50:.1f}" y2="{PY0}" stroke="{NEG}" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.55"/>'
+                    f'<text x="{g50:.1f}" y="{PY1-8}" text-anchor="middle" font-family="{SANS}" font-size="12" fill="{NEG}">50%</text>')
+    body.append(f'<text x="{(PX0+PX1)/2}" y="{PY0+44}" text-anchor="middle" font-family="{SANS}" font-size="13" fill="{INK}">винрейт →</text>'
+                f'<text x="{PX0-56}" y="{PY1-14}" font-family="{SANS}" font-size="13" fill="{INK}">популярность ↑</text>')
+    gmax = max((r.get("games") or 0) for r in rows) or 1
+    labeled = sorted(rows, key=lambda r: -(r.get("games") or r["y"]))[: spec.get("label_top", 8)]
+    placed = []          # (x0, x1, y) уже поставленных подписей — для разруливания коллизий
+    for r in sorted(rows, key=lambda r: -(r.get("games") or 0)):
+        x, y = XY(r)
+        rad = 6 + 8 * math.sqrt((r.get("games") or 0) / gmax)
+        col = r.get("color") or CLASS_COLORS.get(r.get("class", ""), MUTED)
+        body.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{rad:.1f}" fill="{col}" fill-opacity="0.82" stroke="{CREAM}" stroke-width="1.6"/>')
+        if r in labeled:
+            lab = serif_text(r["label"])
+            w = text_w(r["label"], 13.5, serif=True)
+            anchor, lx = ("start", x + rad + 6) if x < 600 else ("end", x - rad - 6)
+            x0, x1 = (lx, lx + w) if anchor == "start" else (lx - w, lx)
+            ly = y + 4
+            for dy in (0, -19, 19, -38, 38, -57, 57):
+                cand = ly + dy
+                if all(x1 < px0 - 6 or x0 > px1 + 6 or abs(cand - py) >= 17
+                       for px0, px1, py in placed):
+                    ly = cand
+                    break
+            placed.append((x0, x1, ly))
+            body.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" font-family="{SERIF}" '
+                        f'font-size="13.5" fill="{INK}" stroke="#f7e8bf" stroke-width="3" paint-order="stroke" stroke-linejoin="round">{lab}</text>')
+    return 800, H, "\n".join(body), f"Размер точки — число игр · подписаны топ-{len(labeled)}"
+
+def r_radar(spec):
+    """Паутинка 3–8 осей, до 2 серий, значения 0–100 (нормировка на вызывающей стороне)."""
+    axes = spec["axes"]
+    series = spec["data"]
+    n = len(axes)
+    if not 3 <= n <= 8: die("radar: нужно 3–8 осей")
+    H = 560
+    CX, CY, R = 400, 320, 168
+    def pt(frac, i):
+        a = -math.pi / 2 + 2 * math.pi * i / n
+        return CX + R * frac * math.cos(a), CY + R * frac * math.sin(a)
+    body = []
+    for ring in (0.2, 0.4, 0.6, 0.8, 1.0):
+        pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in (pt(ring, i) for i in range(n)))
+        body.append(f'<polygon points="{pts}" fill="none" stroke="{MUTED}" stroke-width="1" opacity="{0.42 if ring == 1.0 else 0.25}"/>')
+    for i, ax in enumerate(axes):
+        x1, y1 = pt(1.0, i)
+        body.append(f'<line x1="{CX}" y1="{CY}" x2="{x1:.1f}" y2="{y1:.1f}" stroke="{MUTED}" stroke-width="1" opacity="0.3"/>')
+        lx, ly = pt(1.16, i)
+        anchor = "middle" if abs(lx - CX) < 30 else ("start" if lx > CX else "end")
+        body.append(f'<text x="{lx:.1f}" y="{ly+5:.1f}" text-anchor="{anchor}" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(ax)}</text>')
+    for si, s in enumerate(series[:2]):
+        col = s.get("color", SERIES[si % len(SERIES)])
+        pts = [pt(max(0, min(100, v)) / 100, i) for i, v in enumerate(s["values"])]
+        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        ref = s.get("reference")
+        if ref:
+            body.append(f'<polygon points="{poly}" fill="none" stroke="{col}" stroke-width="2" stroke-dasharray="5 4" opacity="0.7"/>')
+        else:
+            body.append(f'<polygon points="{poly}" fill="{col}" fill-opacity="0.22" stroke="{col}" stroke-width="3" stroke-linejoin="round"/>')
+            for x, y in pts:
+                body.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{col}" stroke="{CREAM}" stroke-width="1.5"/>')
+    if len(series) > 1:
+        lx = 270
+        for si, s in enumerate(series[:2]):
+            col = s.get("color", SERIES[si % len(SERIES)])
+            dash = ' stroke-dasharray="5 4"' if s.get("reference") else ""
+            body.append(f'<line x1="{lx}" y1="{H-52}" x2="{lx+26}" y2="{H-52}" stroke="{col}" stroke-width="3"{dash}/>'
+                        f'<text x="{lx+34}" y="{H-47}" font-family="{SANS}" font-size="13" fill="{INK}">{esc(s["name"])}</text>')
+            lx += 34 + text_w(s["name"], 13) + 30
+    return 800, H, "\n".join(body), ""
+
+RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
              "beforeafter": r_beforeafter, "matchup": r_matchup, "badge": r_badge,
              "timeline": r_timeline, "digest": r_digest}
 
@@ -743,6 +844,17 @@ def build(spec):
     if spec.get("logo", True):
         H += 52                     # bottom band for the site logo
         logo = logo_tag(H)
+    fmt = spec.get("format", "wide")
+    if fmt in ("square", "story"):
+        target = 800 if fmt == "square" else 1422      # 1:1 / 9:16 при ширине 800
+        pad = target - H
+        if pad < 0:
+            die(f"{fmt}: контент выше формата ({H} > {target}) — сократи данные")
+        if pad > H * 0.6:
+            die(f"{fmt}: контент слишком низкий для формата (пустых полей {pad}) — возьми больше строк или другой тип")
+        content = f'<g transform="translate(0 {pad/2:.0f})">{content}</g>'
+        H = target
+        logo = logo_tag(H) if logo else ""
     tb, _ = title_block(spec)
     body = "\n".join([font_face_style(), frame(H, spec.get("frame", "vector"), finish),
                       tb, content, footer(spec, H, scale_note or ""), logo])
