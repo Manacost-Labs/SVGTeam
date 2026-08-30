@@ -57,8 +57,8 @@
 |---|---|---|---|
 | Заголовок графика | `HSDisplay, Georgia, serif` | 24–28, weight 700 | letter-spacing 0.5; тёмная обводка `paint-order="stroke"` |
 | Подзаголовок / период | `Georgia, serif` | 14–15, style italic | цвет ink-muted |
-| Значения на графике | `Inter, -apple-system, 'Segoe UI', sans-serif` | 13–15, weight 600 | |
-| Подписи осей и категорий | тот же sans | 13–14, weight 400 | ink или ink-muted |
+| Названия классов/строк, значения, заголовки колонок | `HSDisplay, Georgia, serif` | 14–15 | игровой Belwe, вшивается сабсетом |
+| Подписи осей, мелкие пометки | `Inter, -apple-system, 'Segoe UI', sans-serif` | 13–14 | ink или ink-muted |
 | Сноска / источник | тот же sans | 11–12 | ink-muted, единственное место где можно <13 |
 
 HSDisplay — это Belwe Bold с кириллицей (`assets/fonts/`), родной шрифт Hearthstone. Генератор вшивает его сабсет прямо в SVG через `@font-face` с data-URI — работает даже при вставке через `<img>`, сети не требует. Фолбэки всё равно обязательны: сабсет покрывает только заголовки; если fonttools недоступен, всё тихо падает в Georgia — проверяй макет и в фолбэке. PNG-экспорт подключает шрифт флагом `--use-font-file` сам.

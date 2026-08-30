@@ -301,11 +301,11 @@ def r_bars(spec):
     extra_header = spec.get("extra_header")   # optional 2nd text column (e.g. popularity)
     H = 118 + len(rows) * 38 + 76 + (24 if extra_header else 0)
     # label column adapts to the longest name (up to 320), rest is truncated
-    max_lab = max(len(str(r["label"])) * 8.2 for r in rows)
+    max_lab = max(len(str(r["label"])) * 9.0 for r in rows)
     X0 = min(320, max(230, int(82 + max_lab + 12)))
     track_end = 656 if extra_header else 710
     TRACK = track_end - X0
-    lab_chars = int((X0 - 82 - 12) / 7.6)   # looser than sizing: truncate only real overflow
+    lab_chars = int((X0 - 82 - 12) / 8.3)   # looser than sizing: truncate only real overflow
     y0 = 118
     body = []
     if extra_header:
@@ -327,7 +327,7 @@ def r_bars(spec):
         stroke = f'stroke="{GOLD}" stroke-width="1.5"' if leader else 'stroke="#5d0d13" stroke-width="1"'
         color = r.get("color", "#8d171d" if spec.get("theme", "arena") == "arena" else "#8f536d")
         raw = str(r["label"])
-        label = esc(raw if len(raw) <= lab_chars else raw[:lab_chars - 1].rstrip() + "…")
+        label = serif_text(raw if len(raw) <= lab_chars else raw[:lab_chars - 1].rstrip() + "…")
         icon = icon_tag(r["icon"], 46, y) if r.get("icon") else ""
         star = f'<text x="78" y="{y+18}" font-size="12" fill="{GOLD}">★</text>' if leader else ""
         tx = 92 if leader else 82
@@ -337,6 +337,7 @@ def r_bars(spec):
   <rect x="{X0+1}" y="{y+2}" width="{max(w-2,0):.1f}" height="8" rx="2" fill="#ffffff" opacity="0.20"/>
   <rect x="{X0+1}" y="{y+17}" width="{max(w-2,0):.1f}" height="7" rx="2" fill="#000000" opacity="0.14"/>'''
         val = f'{r["value"]}{unit}'
+        DISPLAY_CHARS.update(val + str(r.get("extra") or ""))
         if leader:
             bar += (f'\n  <circle cx="{X0+w:.1f}" cy="{y+13}" r="6.5" fill="url(#goldEdge)" '
                     f'stroke="#5d3f12" stroke-width="1"/>')
@@ -346,19 +347,19 @@ def r_bars(spec):
                 mx = X0 + w - mw - 14
             bar += (f'\n  <rect x="{mx:.1f}" y="{y+2}" width="{mw:.1f}" height="22" rx="11" '
                     f'fill="#5d0d13" stroke="url(#goldEdge)" stroke-width="1.2"/>'
-                    f'\n  <text x="{mx+mw/2:.1f}" y="{y+18}" text-anchor="middle" font-size="14" '
-                    f'font-weight="700" fill="{CREAM}">{val}</text>')
+                    f'\n  <text x="{mx+mw/2:.1f}" y="{y+18}" text-anchor="middle" font-family="{SERIF}" '
+                    f'font-size="14.5" font-weight="700" fill="{CREAM}">{val}</text>')
         else:
             vx = X0 + w + 8
             vattr = f'x="{vx:.1f}" fill="{INK}"'
             if w > TRACK - 64:
                 vattr = f'x="{X0+w-8:.1f}" text-anchor="end" fill="{CREAM}"'
-            bar += f'\n  <text {vattr} y="{y+18}" font-size="14" font-weight="600">{val}</text>'
+            bar += f'\n  <text {vattr} y="{y+18}" font-family="{SERIF}" font-size="14.5">{val}</text>'
         if extra_header and r.get("extra") is not None:
-            bar += (f'\n  <text x="754" y="{y+18}" text-anchor="end" font-size="14" '
+            bar += (f'\n  <text x="754" y="{y+18}" text-anchor="end" font-family="{SERIF}" font-size="14" '
                     f'fill="{MUTED}">{esc(r["extra"])}</text>')
         body.append(f'''<g font-family="{SANS}">{icon}
-  <text x="{tx}" y="{y+18}" font-size="14" fill="{INK}">{label}</text>{star}
+  <text x="{tx}" y="{y+18}" font-family="{SERIF}" font-size="15" fill="{INK}">{label}</text>{star}
   {bar}
 </g>''')
     return 800, H, "\n".join(body), f"Шкала от {vmin}{unit}"
@@ -435,8 +436,8 @@ def r_donut(spec):
                     f'fill="{col}" stroke="#ead6a7" stroke-width="3"/>')
         ly = ly0 + i * 36
         body.append(f'<rect x="446" y="{ly:.1f}" width="15" height="15" rx="4" fill="{col}" stroke="#5d3f12" stroke-width="0.7"/>'
-                    f'<text x="470" y="{ly+12.5:.1f}" font-family="{SANS}" font-size="14" fill="{INK}">{esc(r["label"])}</text>'
-                    f'<text x="754" y="{ly+12.5:.1f}" text-anchor="end" font-family="{SANS}" font-size="14" font-weight="600" fill="{INK}">{r["value"]:g}%</text>')
+                    f'<text x="470" y="{ly+12.5:.1f}" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(r["label"])}</text>'
+                    f'<text x="754" y="{ly+12.5:.1f}" text-anchor="end" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(f"{r['value']:g}%")}</text>')
         a0 = a1
     # carved-ring shading so the donut reads as an inset, not a flat disc
     body.append(f'<circle cx="{CX}" cy="{CY}" r="{R}" fill="none" stroke="#30251c" stroke-width="2.5" opacity="0.15"/>'
@@ -456,8 +457,8 @@ def r_tierlist(spec):
     y, ROW, GAP = 152, 34, 16
     body = []
     for ci, h in enumerate(heads):
-        body.append(f'<text x="{600 + ci*130}" y="140" text-anchor="end" font-family="{SANS}" font-size="14" '
-                    f'font-weight="700" letter-spacing="0.8" fill="{MUTED}">{esc(str(h).upper())}</text>')
+        body.append(f'<text x="{600 + ci*130}" y="140" text-anchor="end" font-family="{SERIF}" font-size="14" '
+                    f'letter-spacing="1" fill="{MUTED}">{serif_text(str(h).upper())}</text>')
     for ti, tier in enumerate(tiers):
         letter = tier["tier"]
         fill, tcol = plq.get(letter, (MUTED, CREAM))
@@ -469,10 +470,10 @@ def r_tierlist(spec):
             ry = y + i * ROW
             icon = icon_tag(r["icon"], 100, ry, 24) if r.get("icon") else ""
             cols = "".join(
-                f'<text x="{600 + ci*130}" y="{ry+17}" text-anchor="end" font-weight="{600 if ci == 0 else 400}" fill="{INK if ci == 0 else MUTED}">{esc(v)}</text>'
+                f'<text x="{600 + ci*130}" y="{ry+17}" text-anchor="end" font-size="14.5" fill="{INK if ci == 0 else MUTED}">{serif_text(v)}</text>'
                 for ci, v in enumerate(r.get("cols", [])))
-            body.append(f'<g font-family="{SANS}" font-size="14" fill="{INK}">{icon}'
-                        f'<text x="134" y="{ry+17}">{esc(r["label"])}</text>{cols}</g>')
+            body.append(f'<g font-family="{SERIF}" font-size="15" fill="{INK}">{icon}'
+                        f'<text x="134" y="{ry+17}">{serif_text(r["label"])}</text>{cols}</g>')
         y += gh + GAP
         if ti != len(tiers) - 1:
             dy = y - 10
@@ -537,7 +538,7 @@ def r_matchup(spec):
     for i, r in enumerate(rows):
         yv = TY + i * CH
         icon = icon_tag(r["icon"], 46, yv + 7, 24) if r.get("icon") else ""
-        body.append(f'{icon}<text x="78" y="{yv+24}" font-family="{SANS}" font-size="13" fill="{INK}">{esc(r["label"])}</text>')
+        body.append(f'{icon}<text x="78" y="{yv+24}" font-family="{SERIF}" font-size="14" fill="{INK}">{serif_text(r["label"])}</text>')
         for j in range(m):
             v = vals[i][j]
             x = LX + j * CW
