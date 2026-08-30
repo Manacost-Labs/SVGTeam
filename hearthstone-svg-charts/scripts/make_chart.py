@@ -456,7 +456,8 @@ def r_tierlist(spec):
     y, ROW, GAP = 152, 34, 16
     body = []
     for ci, h in enumerate(heads):
-        body.append(f'<text x="{600 + ci*130}" y="140" text-anchor="end" font-family="{SANS}" font-size="13" font-weight="600" fill="{MUTED}">{esc(h)}</text>')
+        body.append(f'<text x="{600 + ci*130}" y="140" text-anchor="end" font-family="{SANS}" font-size="14" '
+                    f'font-weight="700" letter-spacing="0.8" fill="{MUTED}">{esc(str(h).upper())}</text>')
     for ti, tier in enumerate(tiers):
         letter = tier["tier"]
         fill, tcol = plq.get(letter, (MUTED, CREAM))
