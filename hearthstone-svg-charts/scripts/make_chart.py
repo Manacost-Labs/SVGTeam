@@ -41,7 +41,7 @@ def serif_text(s):
     return esc(s)
 INK, MUTED = "#30251c", "#735e49"
 CREAM = "#f7e8bf"
-SERIES = ["#8d171d", "#8f536d", "#2f7a3e", "#b98a2f", "#735e49"]
+SERIES = ["#8d171d", "#8f536d", "#2f7a3e", "#b98a2f", "#735e49", "#3f6f6a"]
 POS, NEG = "#2f7a3e", "#a33a3a"
 GOLD = "#d9ab49"
 MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
@@ -418,11 +418,14 @@ def r_donut(spec):
     if abs(total - 100) > 0.5:
         die(f"donut: сумма долей {total}, должна быть 100")
     H = 450
-    CX, CY, R, RIN = 300, 265, 130, 78
+    CX, CY, R, RIN = 250, 268, 128, 77
     def pt(r, a): return CX + r * math.cos(a), CY + r * math.sin(a)
     body, a0 = [], -math.pi / 2
+    # legend column on the right: immune to overlaps at any share skew
+    ly0 = CY - (len(rows) * 36 - 10) / 2
     for i, r in enumerate(rows):
-        col = r.get("color", SERIES[i % len(SERIES)])
+        col = r.get("color", "#a89274" if r["label"].strip().lower() == "прочее"
+                    else SERIES[i % len(SERIES)])
         a1 = a0 + 2 * math.pi * r["value"] / total
         large = 1 if (a1 - a0) > math.pi else 0
         x0o, y0o = pt(R, a0); x1o, y1o = pt(R, a1)
@@ -430,13 +433,10 @@ def r_donut(spec):
         body.append(f'<path d="M {x0o:.1f} {y0o:.1f} A {R} {R} 0 {large} 1 {x1o:.1f} {y1o:.1f} '
                     f'L {x1i:.1f} {y1i:.1f} A {RIN} {RIN} 0 {large} 0 {x0i:.1f} {y0i:.1f} Z" '
                     f'fill="{col}" stroke="#ead6a7" stroke-width="3"/>')
-        mid = (a0 + a1) / 2
-        lx, ly = pt(R + 18, mid)
-        anchor = "start" if math.cos(mid) >= 0 else "end"
-        lab = esc(r["label"])
-        if anchor == "end" and text_w(f"{lab} — {r['value']:g}%", 13) * 0.9 > lx - 30:
-            lab = lab[:12] + "…"
-        body.append(f'<text x="{lx:.1f}" y="{ly+4:.1f}" text-anchor="{anchor}" font-family="{SANS}" font-size="13" fill="{INK}">{lab} — {r["value"]:g}%</text>')
+        ly = ly0 + i * 36
+        body.append(f'<rect x="446" y="{ly:.1f}" width="15" height="15" rx="4" fill="{col}" stroke="#5d3f12" stroke-width="0.7"/>'
+                    f'<text x="470" y="{ly+12.5:.1f}" font-family="{SANS}" font-size="14" fill="{INK}">{esc(r["label"])}</text>'
+                    f'<text x="754" y="{ly+12.5:.1f}" text-anchor="end" font-family="{SANS}" font-size="14" font-weight="600" fill="{INK}">{r["value"]:g}%</text>')
         a0 = a1
     # carved-ring shading so the donut reads as an inset, not a flat disc
     body.append(f'<circle cx="{CX}" cy="{CY}" r="{R}" fill="none" stroke="#30251c" stroke-width="2.5" opacity="0.15"/>'
