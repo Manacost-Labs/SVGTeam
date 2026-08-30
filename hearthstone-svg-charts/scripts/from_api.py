@@ -242,6 +242,33 @@ def cmd_arena_legendaries(args):
             "footer": f"винрейт колод, взявших карту · всего легендарок: {len(rows)} · источник: hearthpulse.net"}
     emit(spec, "arena-legendaries", args)
 
+def cmd_versus(args):
+    items, meta = api_items(f"/v1/hsguru/meta?format={args.fmt}")
+    patch = (meta.get("current_patch_period") or "").replace("patch_", "патч ")
+    def pick(name):
+        it = next((i for i in items if i["archetype"].lower() == name.lower()), None)
+        if not it:
+            sys.exit(f"архетип '{name}' не найден в мете (имена английские, как в hsguru)")
+        return it
+    l, r = pick(args.left), pick(args.right)
+    def side(it, color):
+        cls = klass(it["archetype"])
+        return {"name": ru(it["archetype"]), "sub": "", "color": color,
+                **({"avatar": cls} if cls else {})}
+    spec = {"type": "versus", "title": f"{ru(l['archetype'])} против: {ru(r['archetype'])}",
+            "subtitle": f"{'Стандарт' if args.fmt == 'standard' else 'Вольный'} · {patch} · за сутки · {today_ru()}",
+            "theme": "arena",
+            "data": {"left": side(l, "#8d171d"), "right": side(r, "#3d2335"),
+                     "metrics": [
+                         {"label": "винрейт", "left": l["winrate"], "right": r["winrate"], "unit": "%"},
+                         {"label": "популярность", "left": l["popularity"], "right": r["popularity"], "unit": "%"},
+                         {"label": "игр за сутки", "left": l["games"], "right": r["games"]},
+                         {"label": "скорость набора звёзд, в час", "left": l["climbing_speed"], "right": r["climbing_speed"]},
+                         {"label": "средняя длина игры, минут", "left": l["duration_minutes"], "right": r["duration_minutes"], "better": "lower"},
+                     ]},
+            "footer": FOOT}
+    emit(spec, f"versus-{args.left.lower().replace(' ', '-')}-vs-{args.right.lower().replace(' ', '-')}", args)
+
 def cmd_digest(args):
     posts = get(f"{WP}/posts?per_page={args.limit}&_fields=title,date,featured_media")
     cutoff = datetime.date.today() - datetime.timedelta(days=args.days)
@@ -300,6 +327,7 @@ def main():
     p = sub.add_parser("bg-tiers"); p.add_argument("--mode", default="solo", choices=["solo", "duos"]); p.add_argument("--top-a", type=int, default=5); p.set_defaults(fn=cmd_bg_tiers)
     p = sub.add_parser("bg-radar"); p.add_argument("--hero", required=True); p.add_argument("--mode", default="solo", choices=["solo", "duos"]); p.set_defaults(fn=cmd_bg_radar)
     p = sub.add_parser("arena-legendaries"); p.add_argument("--top", type=int, default=10); p.set_defaults(fn=cmd_arena_legendaries)
+    p = sub.add_parser("versus"); p.add_argument("--left", required=True); p.add_argument("--right", required=True); p.add_argument("--fmt", default="standard", choices=["standard", "wild"]); p.set_defaults(fn=cmd_versus)
     p = sub.add_parser("digest"); p.add_argument("--days", type=int, default=7); p.add_argument("--limit", type=int, default=12); p.set_defaults(fn=cmd_digest)
 
     args = ap.parse_args()

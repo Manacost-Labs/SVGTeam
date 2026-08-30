@@ -11,6 +11,7 @@ python3 scripts/from_api.py history --archetype "Pirate Warrior"
 python3 scripts/from_api.py arena-tiers / arena-donuts
 python3 scripts/from_api.py bg-tiers / bg-radar --hero "Cariel Roame"
 python3 scripts/from_api.py arena-legendaries --top 10
+python3 scripts/from_api.py versus --left "Pirate Warrior" --right "Attack Druid"
 python3 scripts/from_api.py digest --days 7
 ```
 
@@ -109,6 +110,19 @@ python3 scripts/export_png.py chart.svg          # → PNG 2x, прозрачн�
 "data": {"name": "Zulut", "role": "автор и редактор hs-manacost.ru",
          "avatar": "/путь/к/фото.jpg", "tagline": "Пишу про Арену и Поля сражений.",
          "stats": [{"value": "480+", "label": "статей"}, {"value": "топ-1%", "label": "Арена"}]}
+```
+
+**versus** — афиша «кто кого»: два портрета в золотых кольцах, VS-медальон, встречные бары по метрикам (победитель — насыщенный цвет, золотая обводка и ★; проигравший — приглушён). `better: "lower"` — когда меньше = лучше (длина игры). Нечисловые значения выводятся текстом без баров.
+```json
+"data": {"left": {"name": "Пират Воин", "avatar": "warrior", "color": "#8d171d"},
+         "right": {"name": "Друид на атаке", "avatar": "druid"},
+         "metrics": [{"label": "винрейт", "left": 61.1, "right": 59.3, "unit": "%"},
+                     {"label": "длина игры", "left": 6.0, "right": 9.0, "better": "lower"}]}
+```
+
+**quote** — цитата-карточка: золотые кавычки, текст Belwe до 5 строк, автор с круглым аватаром и ролью, источник в footer. Без плашки, finish quiet. Цитаты не выдумывать — только реальные слова реальных людей (или от имени сайта).
+```json
+"data": {"text": "…", "author": "Manacost", "role": "мета-отчёт Арены", "avatar": "/путь/фото.jpg"}
 ```
 
 **scatter** — карта меты по методологии hearthpulse: X — винрейт, Y — популярность, размер точки — число игр, цвет — класс (палитра классов под пергамент), пунктир на 50%. Подписи топ-N (по играм) с авторазруливанием коллизий.

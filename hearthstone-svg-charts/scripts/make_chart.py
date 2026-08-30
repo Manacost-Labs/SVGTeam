@@ -914,7 +914,101 @@ def r_author(spec):
         x += vw + 14
     return 800, H, "\n".join(body), None
 
-RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
+
+def _fighter(side, cx, cy, r):
+    body = []
+    if side.get("avatar"):
+        uri = icon_uri(side["avatar"], photo=str(side["avatar"]).startswith("/"))
+        body.append(f'<defs><clipPath id="vs-{cx}"><circle cx="{cx}" cy="{cy}" r="{r}"/></clipPath></defs>'
+                    f'<image href="{uri}" x="{cx-r}" y="{cy-r}" width="{2*r}" height="{2*r}" '
+                    f'preserveAspectRatio="xMidYMid slice" clip-path="url(#vs-{cx})"/>')
+    body.append(f'<circle cx="{cx}" cy="{cy}" r="{r+2}" fill="none" stroke="url(#goldEdge)" stroke-width="4"/>'
+                f'<circle cx="{cx}" cy="{cy}" r="{r+5.5}" fill="none" stroke="#5d3f12" stroke-width="1.2"/>')
+    body.append(f'<text x="{cx}" y="{cy+r+34}" text-anchor="middle" font-family="{SERIF}" '
+                f'font-size="20" fill="{INK}">{serif_text(side["name"])}</text>')
+    if side.get("sub"):
+        body.append(f'<text x="{cx}" y="{cy+r+54}" text-anchor="middle" font-family="{SANS}" '
+                    f'font-size="13" fill="{MUTED}">{esc(side["sub"])}</text>')
+    return "\n".join(body)
+
+def r_versus(spec):
+    """Афиша «кто кого»: два портрета, VS-медальон, встречные бары по метрикам."""
+    d = spec["data"]
+    left, right, metrics = d["left"], d["right"], d["metrics"]
+    lc = left.get("color", "#8d171d")
+    rc = right.get("color", "#3d2335")
+    cy, r = 196, 62
+    rows_y0 = cy + r + 84
+    H = rows_y0 + len(metrics) * 56 + 58
+    body = [_fighter(left, 168, cy, r), _fighter(right, 632, cy, r)]
+    # VS-медальон
+    body.append(f'<circle cx="400" cy="{cy}" r="34" fill="url(#goldEdge)" stroke="#5d3f12" stroke-width="1.6"/>'
+                f'<circle cx="400" cy="{cy}" r="28" fill="none" stroke="#5d3f12" stroke-width="1" opacity="0.5"/>'
+                f'<text x="400" y="{cy+9}" text-anchor="middle" font-family="{SERIF}" font-size="26" '
+                f'fill="#3a2408" stroke="#f9ead0" stroke-width="0.6">{serif_text("VS")}</text>')
+    HALF, CXL, CXR = 168, 388, 412   # встречные дорожки от центра
+    for i, m in enumerate(metrics):
+        y = rows_y0 + i * 56
+        body.append(f'<text x="400" y="{y-8}" text-anchor="middle" font-family="{SANS}" '
+                    f'font-size="13" fill="{MUTED}">{esc(m["label"])}</text>')
+        try:
+            lv, rv = float(m["left"]), float(m["right"])
+            numeric = True
+        except (TypeError, ValueError):
+            numeric = False
+        if numeric and (lv or rv):
+            better = m.get("better", "higher")
+            lwin = (lv > rv) if better == "higher" else (lv < rv)
+            rwin = (rv > lv) if better == "higher" else (rv < lv)
+            mx = max(abs(lv), abs(rv)) or 1
+            lw, rw = HALF * abs(lv) / mx, HALF * abs(rv) / mx
+            for (x0, w, col, win) in ((CXL - lw, lw, lc, lwin), (CXR, rw, rc, rwin)):
+                body.append(f'<rect x="{x0:.1f}" y="{y}" width="{w:.1f}" height="20" rx="3" fill="{col}" '
+                            f'opacity="{1 if win else 0.45}"'
+                            + (f' stroke="{GOLD}" stroke-width="1.5"' if win else "") + '/>'
+                            f'<rect x="{x0:.1f}" y="{y+1}" width="{w:.1f}" height="7" rx="2" fill="#ffffff" opacity="0.18"/>')
+            body.append(f'<text x="{CXL-HALF-12}" y="{y+16}" text-anchor="end" font-family="{SERIF}" font-size="15.5" '
+                        f'fill="{INK if lwin else MUTED}">{serif_text(m["left"])}{esc(m.get("unit", ""))}</text>'
+                        f'<text x="{CXR+HALF+12}" y="{y+16}" font-family="{SERIF}" font-size="15.5" '
+                        f'fill="{INK if rwin else MUTED}">{serif_text(m["right"])}{esc(m.get("unit", ""))}</text>')
+            if lwin or rwin:
+                sx = CXL - HALF - 12 - text_w(f'{m["left"]}{m.get("unit","")}', 15.5, serif=True) - 16 if lwin \
+                     else CXR + HALF + 12 + text_w(f'{m["right"]}{m.get("unit","")}', 15.5, serif=True) + 8
+                body.append(f'<text x="{sx:.0f}" y="{y+15}" font-size="12" fill="{GOLD}">★</text>')
+        else:
+            body.append(f'<text x="{CXL-40}" y="{y+16}" text-anchor="end" font-family="{SERIF}" font-size="15.5" fill="{INK}">{serif_text(m["left"])}</text>'
+                        f'<text x="{CXR+40}" y="{y+16}" font-family="{SERIF}" font-size="15.5" fill="{INK}">{serif_text(m["right"])}</text>')
+        if i != len(metrics) - 1:
+            body.append(f'<line x1="120" y1="{y+38}" x2="680" y2="{y+38}" stroke="#5f371d" stroke-width="1" opacity="0.25"/>')
+    return 800, H, "\n".join(body), "★ — лучший по метрике"
+
+def r_quote(spec):
+    """Цитата-карточка: золотые кавычки, текст Belwe, автор с аватаром."""
+    d = spec["data"]
+    lines = wrap(d["text"], 21, 560, 5)
+    qy0 = 118
+    ay = qy0 + len(lines) * 32 + 34
+    H = ay + 96
+    body = [f'<text x="52" y="{qy0+52}" font-family="{SERIF}" font-size="110" '
+            f'fill="url(#goldEdge)" opacity="0.75">{serif_text("«")}</text>']
+    for i, ln in enumerate(lines):
+        body.append(f'<text x="150" y="{qy0 + i*32}" font-family="{SERIF}" font-size="21" '
+                    f'fill="{INK}">{serif_text(ln)}</text>')
+    body.append(f'<line x1="150" y1="{ay-26}" x2="330" y2="{ay-26}" stroke="url(#goldEdge)" stroke-width="2" opacity="0.7"/>')
+    ax = 150
+    if d.get("avatar"):
+        uri = icon_uri(d["avatar"], photo=str(d["avatar"]).startswith("/"))
+        body.append(f'<defs><clipPath id="qav"><circle cx="{ax+24}" cy="{ay+10}" r="24"/></clipPath></defs>'
+                    f'<image href="{uri}" x="{ax}" y="{ay-14}" width="48" height="48" '
+                    f'preserveAspectRatio="xMidYMid slice" clip-path="url(#qav)"/>'
+                    f'<circle cx="{ax+24}" cy="{ay+10}" r="25" fill="none" stroke="url(#goldEdge)" stroke-width="2.5"/>')
+        ax += 64
+    body.append(f'<text x="{ax}" y="{ay+8}" font-family="{SERIF}" font-size="17" fill="{INK}">{serif_text(d["author"])}</text>')
+    if d.get("role"):
+        body.append(f'<text x="{ax}" y="{ay+28}" font-family="{SANS}" font-size="13" fill="{MUTED}">{esc(d["role"])}</text>')
+    return 800, H, "\n".join(body), None
+
+RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "versus": r_versus, "quote": r_quote, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
              "beforeafter": r_beforeafter, "matchup": r_matchup, "badge": r_badge,
              "timeline": r_timeline, "digest": r_digest}
 
@@ -962,7 +1056,7 @@ def build(spec):
     t = spec.get("type")
     if t not in RENDERERS:
         die(f"неизвестный type '{t}'; доступны: {', '.join(RENDERERS)}")
-    finish = spec.get("finish", "quiet" if t in ("badge", "digest", "author") else "parade")
+    finish = spec.get("finish", "quiet" if t in ("badge", "digest", "author", "quote") else "parade")
     W, H, content, scale_note = RENDERERS[t](spec)
     if t == "badge":
         return doc(W, H, spec.get("title", "Бейдж"), font_face_style() + "\n" + content)
@@ -981,7 +1075,7 @@ def build(spec):
         content = f'<g transform="translate(0 {pad/2:.0f})">{content}</g>'
         H = target
         logo = logo_tag(H) if logo else ""
-    tb, _ = ("", 96) if t == "author" else title_block(spec)
+    tb, _ = ("", 96) if t in ("author", "quote") else title_block(spec)
     body = "\n".join([font_face_style(), frame(H, spec.get("frame", "vector"), finish),
                       tb, content, footer(spec, H, scale_note or ""), logo])
     return doc(W, H, spec.get("title", "График"), body)
