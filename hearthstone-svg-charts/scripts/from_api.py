@@ -92,6 +92,8 @@ def emit(spec, name, args):
     svg_path = out / f"chart-{name}-{stamp}.svg"
     make_chart.DISPLAY_CHARS.clear()
     svg_path.write_text(make_chart.build(spec), encoding="utf-8")
+    svg_path.with_suffix(".spec.json").write_text(
+        json.dumps(spec, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"{svg_path} ({svg_path.stat().st_size // 1024} KB)")
     if args.png:
         subprocess.run([sys.executable, str(pathlib.Path(__file__).parent / "export_png.py"),
