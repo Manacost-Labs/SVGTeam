@@ -1017,47 +1017,68 @@ def r_quote(spec):
     return 800, H, "\n".join(body), None
 
 
+def _mana_crystal(x, y, cost, scale=1.0):
+    """Векторный кристалл маны с цифрой — чётче, чем растровая иконка в 24px."""
+    s = scale
+    return (f'<g transform="translate({x} {y}) scale({s})">'
+            f'<path d="M 13 0 L 24 9 L 20.5 26 L 5.5 26 L 2 9 Z" fill="url(#manaG)" stroke="#0a2c50" stroke-width="1.6"/>'
+            f'<path d="M 13 2.5 L 21.5 9.5 L 13 7 L 4.5 9.5 Z" fill="#bfe3ff" opacity="0.5"/>'
+            f'<text x="13" y="19.5" text-anchor="middle" font-family="{SERIF}" font-size="14" '
+            f'fill="#ffffff" stroke="#0a2c50" stroke-width="2.6" paint-order="stroke">{serif_text(cost)}</text>'
+            f'</g>')
+
 def r_mulligan(spec):
     """Мулиган-гайд: карты × классы-оппоненты, вердикты держать/по ситуации/кидать."""
     d = spec["data"]
     opps, rows = d["opponents"], d["rows"]
     if len(opps) > 7: die("mulligan: максимум 7 оппонентов")
-    LX = 300
-    CW = min(66, (754 - LX) // len(opps))
-    TY = 168
-    RH = 42
-    H = TY + len(rows) * RH + 52
-    VER = {"keep": ("#2f7a3e", "✓"), "if": ("#b98a2f", "?"), "toss": ("#a33a3a", "✗")}
-    body = []
-    # легенда
+    LX = 320
+    CW = min(74, (752 - LX) // len(opps))
+    TY = 190
+    RH = 46
+    H = TY + len(rows) * RH + 64
+    VER = {"keep": ("#2f7a3e", "#1d5229", "✓"), "if": ("#b98a2f", "#7d5a1a", "?"),
+           "toss": ("#a33a3a", "#6e2222", "✗")}
+    body = ['<defs><linearGradient id="manaG" x1="0" y1="0" x2="0" y2="1">'
+            '<stop offset="0" stop-color="#2f83d6"/><stop offset="0.5" stop-color="#1f6fb8"/>'
+            '<stop offset="1" stop-color="#0d3a66"/></linearGradient></defs>']
+    # легенда — те же щитки, что в ячейках
     lx = 46
     for k, label in (("keep", "держать"), ("if", "по ситуации"), ("toss", "кидать")):
-        col, sym = VER[k]
-        body.append(f'<circle cx="{lx+8}" cy="{TY-46}" r="9" fill="{col}"/>'
-                    f'<text x="{lx+8}" y="{TY-41}" text-anchor="middle" font-family="{SANS}" font-size="11" font-weight="700" fill="{CREAM}">{sym}</text>'
-                    f'<text x="{lx+24}" y="{TY-41}" font-family="{SANS}" font-size="13" fill="{INK}">{label}</text>')
-        lx += 24 + text_w(label, 13) + 26
-    # шапка: иконки оппонентов
-    body.append(f'<text x="{LX-14}" y="{TY-14}" text-anchor="end" font-family="{SANS}" font-size="12" fill="{MUTED}">против →</text>')
+        col, edge, sym = VER[k]
+        body.append(f'<rect x="{lx}" y="{TY-72}" width="24" height="24" rx="7" fill="{col}" stroke="{edge}" stroke-width="1.4"/>'
+                    f'<rect x="{lx}" y="{TY-72}" width="24" height="10" rx="5" fill="#ffffff" opacity="0.22"/>'
+                    f'<text x="{lx+12}" y="{TY-55}" text-anchor="middle" font-family="{SANS}" font-size="13" font-weight="700" fill="{CREAM}">{sym}</text>'
+                    f'<text x="{lx+32}" y="{TY-54}" font-family="{SANS}" font-size="13.5" fill="{INK}">{label}</text>')
+        lx += 32 + text_w(label, 13.5) + 28
+    # дорожки колонок (чётные тонированы) + иконки оппонентов в кольцах
+    bot = TY + len(rows) * RH - 6
     for j, o in enumerate(opps):
-        body.append(icon_tag(o, LX + j * CW + CW / 2 - 13, TY - 40, 26))
-    mana = icon_uri("mana")
+        x0 = LX + j * CW
+        if j % 2 == 0:
+            body.append(f'<rect x="{x0+3}" y="{TY-52}" width="{CW-6}" height="{bot-(TY-52)}" rx="9" fill="{INK}" opacity="0.05"/>')
+        body.append(icon_tag(o, x0 + CW / 2 - 15, TY - 48, 30))
+    body.append(f'<text x="{LX-14}" y="{TY-28}" text-anchor="end" font-family="Georgia, serif" font-style="italic" font-size="13" fill="{MUTED}">против →</text>')
+    # деревянный разделитель под шапкой
+    body.append(f'<rect x="44" y="{TY-10}" width="712" height="2" fill="#5f371d" opacity="0.5"/>'
+                f'<rect x="395.5" y="{TY-14.5}" width="9" height="9" rx="1.5" fill="url(#goldEdge)" stroke="#5d3f12" stroke-width="0.8" transform="rotate(45 400 {TY-10+1})"/>')
     for i, r in enumerate(rows):
         y = TY + i * RH
-        if i % 2 == 0:
-            body.append(f'<rect x="40" y="{y-4}" width="716" height="{RH-2}" rx="6" fill="{INK}" opacity="0.045"/>')
-        body.append(f'<image href="{mana}" x="48" y="{y}" width="26" height="30"/>'
-                    f'<text x="61" y="{y+21}" text-anchor="middle" font-family="{SERIF}" font-size="14.5" '
-                    f'fill="#ffffff" stroke="#1c3a5e" stroke-width="2.4" paint-order="stroke">{serif_text(r.get("cost", ""))}</text>')
+        body.append(_mana_crystal(48, y + 4, r.get("cost", "")))
         name = str(r["card"])
-        if len(name) > 24: name = name[:23].rstrip() + "…"
-        body.append(f'<text x="86" y="{y+21}" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(name)}</text>')
+        if len(name) > 22: name = name[:21].rstrip() + "…"
+        body.append(f'<text x="84" y="{y+23}" font-family="{SERIF}" font-size="15.5" fill="{INK}">{serif_text(name)}</text>')
+        if r.get("count") == 2:
+            nx = min(84 + text_w(name, 15.5, serif=True) + 6, LX - 34)
+            body.append(f'<text x="{nx:.0f}" y="{y+23}" font-family="{SANS}" font-size="12" font-weight="700" fill="#b98a2f">×2</text>')
         for j, v in enumerate(r["verdicts"][:len(opps)]):
-            col, sym = VER.get(v, (MUTED, "—"))
+            col, edge, sym = VER.get(v, (MUTED, MUTED, "—"))
             cx = LX + j * CW + CW / 2
-            body.append(f'<circle cx="{cx:.0f}" cy="{y+14}" r="12.5" fill="{col}" stroke="#ead6a7" stroke-width="1.6"/>'
-                        f'<circle cx="{cx:.0f}" cy="{y+14}" r="12.5" fill="url(#bevelTop)" opacity="0.5"/>'
-                        f'<text x="{cx:.0f}" y="{y+19}" text-anchor="middle" font-family="{SANS}" font-size="13" font-weight="700" fill="{CREAM}">{sym}</text>')
+            body.append(f'<rect x="{cx-14:.0f}" y="{y+2}" width="28" height="28" rx="8" fill="{col}" stroke="{edge}" stroke-width="1.5"/>'
+                        f'<rect x="{cx-14:.0f}" y="{y+2}" width="28" height="12" rx="6" fill="#ffffff" opacity="0.22"/>'
+                        f'<text x="{cx:.0f}" y="{y+22}" text-anchor="middle" font-family="{SANS}" font-size="14.5" font-weight="700" fill="{CREAM}">{sym}</text>')
+        if i != len(rows) - 1:
+            body.append(f'<line x1="44" y1="{y+RH-6}" x2="756" y2="{y+RH-6}" stroke="{MUTED}" stroke-width="1" opacity="0.18"/>')
     return 800, H, "\n".join(body), None
 
 RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "versus": r_versus, "quote": r_quote, "mulligan": r_mulligan, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
