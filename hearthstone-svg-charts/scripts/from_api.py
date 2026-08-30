@@ -272,7 +272,7 @@ def cmd_versus(args):
     emit(spec, f"versus-{args.left.lower().replace(' ', '-')}-vs-{args.right.lower().replace(' ', '-')}", args)
 
 def cmd_digest(args):
-    posts = get(f"{WP}/posts?per_page={args.limit}&_fields=title,date,featured_media")
+    posts = get(f"{WP}/posts?per_page={args.limit}&_fields=title,date,link,featured_media")
     cutoff = datetime.date.today() - datetime.timedelta(days=args.days)
     data = []
     for i, p in enumerate(posts):
@@ -280,6 +280,8 @@ def cmd_digest(args):
             continue
         title = html.unescape(p["title"]["rendered"])
         item = {"title": title, "date": date_ru(p["date"]), **_digest_cat(title)}
+        if p.get("link"):
+            item["url"] = p["link"]
         mid = p.get("featured_media")
         if mid:
             try:

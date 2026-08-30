@@ -342,7 +342,7 @@ def r_bars(spec):
         tx = 92 if leader else 82
         # bar with inner bevel: light crest on top, shade below
         bar = f'''<rect x="{X0}" y="{y+1}" width="{TRACK}" height="24" rx="3" fill="{INK}" opacity="0.08"/>
-  <rect x="{X0}" y="{y+1}" width="{w:.1f}" height="24" rx="3" fill="{color}" {stroke}/>
+  <rect class="a-grow" x="{X0}" y="{y+1}" width="{w:.1f}" height="24" rx="3" fill="{color}" {stroke}/>
   <rect x="{X0+1}" y="{y+2}" width="{max(w-2,0):.1f}" height="8" rx="2" fill="#ffffff" opacity="0.20"/>
   <rect x="{X0+1}" y="{y+17}" width="{max(w-2,0):.1f}" height="7" rx="2" fill="#000000" opacity="0.14"/>'''
         val = f'{r["value"]}{unit}'
@@ -640,6 +640,8 @@ def r_digest(spec):
     y = 128
     for i, it in enumerate(items):
         # thumb 168x94 in deck-border mini frame
+        if it.get("url"):
+            body.append(f'<a href="{esc(it["url"])}">')
         if it.get("image"):
             uri = icon_uri(it["image"], photo=True)
             body.append(f'<defs><clipPath id="dg{i}"><rect x="52" y="{y+6}" width="156" height="{IH-22}" rx="4"/></clipPath></defs>'
@@ -658,6 +660,8 @@ def r_digest(spec):
             body.append(f'<text x="754" y="{y+17}" text-anchor="end" font-family="{SANS}" font-size="13" fill="{MUTED}">{esc(it["date"])}</text>')
         for li, ln in enumerate(wrap(it["title"], 17, 500, 2)):
             body.append(f'<text x="238" y="{y+48+li*24}" font-family="{SANS}" font-size="17" font-weight="600" fill="{INK}">{esc(ln)}</text>')
+        if it.get("url"):
+            body.append('</a>')
         if i != len(items) - 1:
             body.append(f'<rect x="44" y="{y+PAD-11}" width="712" height="1.5" fill="#5f371d" opacity="0.35"/>')
         y += PAD
@@ -671,6 +675,8 @@ def r_digest_compact(spec):
     body = []
     y = 128
     for i, it in enumerate(items):
+        if it.get("url"):
+            body.append(f'<a href="{esc(it["url"])}">')
         if it.get("image"):
             uri = icon_uri(it["image"], photo=True)
             body.append(f'<defs><clipPath id="dgc{i}"><rect x="52" y="{y+7}" width="108" height="56" rx="3"/></clipPath></defs>'
@@ -691,6 +697,8 @@ def r_digest_compact(spec):
         if len(title) > 56:
             title = title[:55].rstrip() + "…"
         body.append(f'<text x="186" y="{y+50}" font-family="{SANS}" font-size="15" font-weight="600" fill="{INK}">{esc(title)}</text>')
+        if it.get("url"):
+            body.append('</a>')
         if i != len(items) - 1:
             body.append(f'<rect x="44" y="{y+PAD-8}" width="712" height="1.5" fill="#5f371d" opacity="0.3"/>')
         y += PAD
@@ -861,7 +869,7 @@ def r_stackbars(spec):
             w = TRACK * s["value"] / total
             if w <= 0:
                 continue
-            seg_tags.append(f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{BH}" fill="{colors[s["name"]]}"/>'
+            seg_tags.append(f'<rect class="a-grow" x="{x:.1f}" y="{y}" width="{w:.1f}" height="{BH}" fill="{colors[s["name"]]}"/>'
                             f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="12" fill="#ffffff" opacity="0.18"/>'
                             f'<rect x="{x:.1f}" y="{y+BH-9}" width="{w:.1f}" height="9" fill="#000000" opacity="0.12"/>')
             if x > X0:
@@ -1008,7 +1016,51 @@ def r_quote(spec):
         body.append(f'<text x="{ax}" y="{ay+28}" font-family="{SANS}" font-size="13" fill="{MUTED}">{esc(d["role"])}</text>')
     return 800, H, "\n".join(body), None
 
-RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "versus": r_versus, "quote": r_quote, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
+
+def r_mulligan(spec):
+    """Мулиган-гайд: карты × классы-оппоненты, вердикты держать/по ситуации/кидать."""
+    d = spec["data"]
+    opps, rows = d["opponents"], d["rows"]
+    if len(opps) > 7: die("mulligan: максимум 7 оппонентов")
+    LX = 300
+    CW = min(66, (754 - LX) // len(opps))
+    TY = 168
+    RH = 42
+    H = TY + len(rows) * RH + 52
+    VER = {"keep": ("#2f7a3e", "✓"), "if": ("#b98a2f", "?"), "toss": ("#a33a3a", "✗")}
+    body = []
+    # легенда
+    lx = 46
+    for k, label in (("keep", "держать"), ("if", "по ситуации"), ("toss", "кидать")):
+        col, sym = VER[k]
+        body.append(f'<circle cx="{lx+8}" cy="{TY-46}" r="9" fill="{col}"/>'
+                    f'<text x="{lx+8}" y="{TY-41}" text-anchor="middle" font-family="{SANS}" font-size="11" font-weight="700" fill="{CREAM}">{sym}</text>'
+                    f'<text x="{lx+24}" y="{TY-41}" font-family="{SANS}" font-size="13" fill="{INK}">{label}</text>')
+        lx += 24 + text_w(label, 13) + 26
+    # шапка: иконки оппонентов
+    body.append(f'<text x="{LX-14}" y="{TY-14}" text-anchor="end" font-family="{SANS}" font-size="12" fill="{MUTED}">против →</text>')
+    for j, o in enumerate(opps):
+        body.append(icon_tag(o, LX + j * CW + CW / 2 - 13, TY - 40, 26))
+    mana = icon_uri("mana")
+    for i, r in enumerate(rows):
+        y = TY + i * RH
+        if i % 2 == 0:
+            body.append(f'<rect x="40" y="{y-4}" width="716" height="{RH-2}" rx="6" fill="{INK}" opacity="0.045"/>')
+        body.append(f'<image href="{mana}" x="48" y="{y}" width="26" height="30"/>'
+                    f'<text x="61" y="{y+21}" text-anchor="middle" font-family="{SERIF}" font-size="14.5" '
+                    f'fill="#ffffff" stroke="#1c3a5e" stroke-width="2.4" paint-order="stroke">{serif_text(r.get("cost", ""))}</text>')
+        name = str(r["card"])
+        if len(name) > 24: name = name[:23].rstrip() + "…"
+        body.append(f'<text x="86" y="{y+21}" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(name)}</text>')
+        for j, v in enumerate(r["verdicts"][:len(opps)]):
+            col, sym = VER.get(v, (MUTED, "—"))
+            cx = LX + j * CW + CW / 2
+            body.append(f'<circle cx="{cx:.0f}" cy="{y+14}" r="12.5" fill="{col}" stroke="#ead6a7" stroke-width="1.6"/>'
+                        f'<circle cx="{cx:.0f}" cy="{y+14}" r="12.5" fill="url(#bevelTop)" opacity="0.5"/>'
+                        f'<text x="{cx:.0f}" y="{y+19}" text-anchor="middle" font-family="{SANS}" font-size="13" font-weight="700" fill="{CREAM}">{sym}</text>')
+    return 800, H, "\n".join(body), None
+
+RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "versus": r_versus, "quote": r_quote, "mulligan": r_mulligan, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
              "beforeafter": r_beforeafter, "matchup": r_matchup, "badge": r_badge,
              "timeline": r_timeline, "digest": r_digest}
 
@@ -1052,6 +1104,19 @@ def logo_tag(H):
     return (f'<image href="{p.read_text().strip()}" x="{754-lw:.0f}" y="{H-26-lh:.0f}" '
             f'width="{lw:.1f}" height="{lh:.1f}"/>')
 
+def anim_style():
+    """CSS-анимация появления. Только opacity/transform через animation —
+    рендеры без поддержки CSS-анимаций (resvg и т.п.) показывают конечный кадр."""
+    delays = "\n".join(f".anim>*:nth-child({i}){{animation-delay:{0.06*i:.2f}s}}"
+                        for i in range(2, 41))
+    return f"""<style>
+@keyframes hs-rise {{from{{opacity:0;transform:translateY(14px)}}to{{opacity:1;transform:none}}}}
+@keyframes hs-grow {{from{{transform:scaleX(0)}}to{{transform:none}}}}
+.anim>*{{animation:hs-rise .55s cubic-bezier(.2,.7,.3,1) both}}
+{delays}
+.anim .a-grow{{transform-box:fill-box;transform-origin:left center;animation:hs-grow .9s .25s cubic-bezier(.2,.7,.3,1) both}}
+</style>"""
+
 def build(spec):
     t = spec.get("type")
     if t not in RENDERERS:
@@ -1064,6 +1129,8 @@ def build(spec):
     if spec.get("logo", t != "author"):
         H += 52                     # bottom band for the site logo
         logo = logo_tag(H)
+    if spec.get("animate"):
+        content = f'<g class="anim">{content}</g>'
     fmt = spec.get("format", "wide")
     if fmt in ("square", "story"):
         target = 800 if fmt == "square" else 1422      # 1:1 / 9:16 при ширине 800
@@ -1077,7 +1144,8 @@ def build(spec):
         logo = logo_tag(H) if logo else ""
     tb, _ = ("", 96) if t in ("author", "quote") else title_block(spec)
     body = "\n".join([font_face_style(), frame(H, spec.get("frame", "vector"), finish),
-                      tb, content, footer(spec, H, scale_note or ""), logo])
+                      tb, content, footer(spec, H, scale_note or ""), logo,
+                      anim_style() if spec.get("animate") else ""])
     return doc(W, H, spec.get("title", "График"), body)
 
 def main():

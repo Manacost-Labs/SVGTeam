@@ -1,0 +1,139 @@
+{
+ "type": "mulligan",
+ "title": "Пират Воин: мулиган-гайд",
+ "subtitle": "Стандарт · колода hsguru 57.2% (6 964 игры) · 30 августа 2026",
+ "theme": "arena",
+ "data": {
+  "opponents": [
+   "priest",
+   "druid",
+   "warrior",
+   "mage",
+   "rogue"
+  ],
+  "rows": [
+   {
+    "card": "Вечная каторга",
+    "cost": 1,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Воздушный налетчик",
+    "cost": 1,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Главный канонир",
+    "cost": 1,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "За фитилем",
+    "cost": 1,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Кровавые катакомбы",
+    "cost": 1,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Факел",
+    "cost": 1,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Инженер-подрывник",
+    "cost": 2,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Насыщение пламенем Тьмы",
+    "cost": 2,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Опаляющая расщелина",
+    "cost": 2,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Притягивающий крюк",
+    "cost": 2,
+    "verdicts": [
+     "keep",
+     "keep",
+     "keep",
+     "keep",
+     "keep"
+    ]
+   },
+   {
+    "card": "Извергающийся вулкан",
+    "cost": 3,
+    "verdicts": [
+     "if",
+     "if",
+     "keep",
+     "if",
+     "keep"
+    ]
+   }
+  ]
+ },
+ "footer": "вердикты — демонстрационная разметка; колода: hsguru.com/deck/41737762"
+}

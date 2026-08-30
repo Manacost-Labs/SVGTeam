@@ -8,7 +8,7 @@
 
 ## Шаблоны
 
-15 типов, каждый генерируется из JSON-спека одной командой. Все спеки лежат в [`hearthstone-svg-charts/examples/specs/`](hearthstone-svg-charts/examples/specs/), готовые SVG — в [`examples/`](hearthstone-svg-charts/examples/).
+16 типов, каждый генерируется из JSON-спека одной командой. Все спеки лежат в [`hearthstone-svg-charts/examples/specs/`](hearthstone-svg-charts/examples/specs/), готовые SVG — в [`examples/`](hearthstone-svg-charts/examples/).
 
 | | |
 |---|---|
@@ -19,7 +19,7 @@
 | **`scatter`** — карта меты: винрейт × популярность, размер точки — игры, цвета классов ![scatter](docs/previews/scatter.png) | **`radar`** — профиль героя Полей сражений против медианного, нормировка по пулу ![radar](docs/previews/radar.png) |
 | **`stackbars`** — 100%-стек с лентами перетекания (мини-санкей), для исследований и опросов ![stackbars](docs/previews/stackbars.png) | **`versus`** — афиша «кто кого»: портреты, VS-медальон, встречные бары, победитель — золотом ![versus](docs/previews/versus.png) |
 | **`badge`** — стат-врезка для лида статьи или соцсетей ![badge](docs/previews/badge.png) | **`author`** — карточка автора: аватар в золотом кольце, роль, стат-пилюли ![author](docs/previews/author.png) |
-| **`quote`** — цитата с золотыми кавычками и подписью автора ![quote](docs/previews/quote.png) | |
+| **`quote`** — цитата с золотыми кавычками и подписью автора ![quote](docs/previews/quote.png) | **`mulligan`** — мулиган-гайд: карты × оппоненты, вердикты ✓/?/✗ ![mulligan](docs/previews/mulligan.png) |
 
 ## Что внутри дизайна
 
@@ -105,6 +105,12 @@ hearthstone-svg-charts/
 ├── assets/                  # текстуры, иконки, шрифт (data-URI версии в datauri/)
 └── examples/                # эталонные SVG + JSON-спеки всех типов
 ```
+
+## Другие ИИ-агенты (Codex, Cursor…)
+
+В корне лежит [AGENTS.md](AGENTS.md) — инструкция в формате, который читают Codex, Cursor и совместимые агенты: команды, правила и ссылки на справочники. Для Claude Code остаётся скилл `hearthstone-svg-charts/SKILL.md`.
+
+Бонусы для веба: `"animate": true` — анимация появления при инлайн-вставке; у дайджеста строки кликабельные (`url` в элементах).
 
 ## Права
 
