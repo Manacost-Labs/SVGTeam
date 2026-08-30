@@ -288,8 +288,12 @@ def footer(spec, H, extra=""):
     parts = [p for p in (extra, spec.get("footer", "")) if p]
     if not parts:
         return ""
-    return (f'<text x="40" y="{H-34}" font-family="{SANS}" font-size="12" '
-            f'fill="{MUTED}">{esc(" · ".join(parts))}</text>')
+    lines = wrap(" · ".join(parts), 12, 560, 2)   # 560: не заезжаем под логотип
+    out = []
+    for i, ln in enumerate(lines):
+        y = H - 34 - (len(lines) - 1 - i) * 16
+        out.append(f'<text x="40" y="{y}" font-family="{SANS}" font-size="12" fill="{MUTED}">{esc(ln)}</text>')
+    return "\n".join(out)
 
 def doc(W, H, label, body):
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" role="img"\n'
@@ -788,7 +792,51 @@ def r_radar(spec):
             lx += 34 + text_w(s["name"], 13) + 30
     return 800, H, "\n".join(body), ""
 
-RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
+
+def r_stackbars(spec):
+    """100%-стек: каждая строка делится на сегменты (доли тем, голосов, ответов)."""
+    rows = spec["data"]
+    names = []
+    for r in rows:
+        for s in r["segments"]:
+            if s["name"] not in names:
+                names.append(s["name"])
+    colors = {n: ("#a89274" if n.strip().lower() == "прочее" else SERIES[i % len(SERIES)])
+              for i, n in enumerate(names)}
+    colors.update(spec.get("colors", {}))
+    X0, TRACK, BH, STEP = 220, 500, 34, 62
+    y0 = 128
+    # легенда сверху, с переносом на новые строки
+    body, lx, lrow = [], 46, 0
+    for n in names:
+        w = 20 + text_w(n, 13) + 22
+        if lx + w > 754:
+            lx, lrow = 46, lrow + 1
+        ly = y0 - 14 + lrow * 24
+        body.append(f'<rect x="{lx}" y="{ly}" width="14" height="14" rx="4" fill="{colors[n]}" stroke="#5d3f12" stroke-width="0.6"/>'
+                    f'<text x="{lx+20}" y="{ly+12}" font-family="{SANS}" font-size="13" fill="{INK}">{esc(n)}</text>')
+        lx += w
+    y = y0 + 22 + lrow * 24
+    for r in rows:
+        total = sum(s["value"] for s in r["segments"]) or 1
+        body.append(f'<text x="{X0-14}" y="{y+22}" text-anchor="end" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(r["label"])}</text>')
+        x = X0
+        for s in r["segments"]:
+            w = TRACK * s["value"] / total
+            if w <= 0:
+                continue
+            body.append(f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{BH}" fill="{colors[s["name"]]}" stroke="#ead6a7" stroke-width="1.5"/>'
+                        f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="10" fill="#ffffff" opacity="0.16"/>')
+            pct = s["value"] / total * 100
+            if w >= 44:
+                body.append(f'<text x="{x+w/2:.1f}" y="{y+22}" text-anchor="middle" font-family="{SERIF}" font-size="13.5" '
+                            f'fill="{CREAM}" stroke="#00000055" stroke-width="0" >{serif_text(f"{pct:.0f}%")}</text>')
+            x += w
+        body.append(f'<rect x="{X0}" y="{y}" width="{TRACK}" height="{BH}" rx="3" fill="none" stroke="#5d0d13" stroke-width="1" opacity="0.35"/>')
+        y += STEP
+    return 800, y + 66, "\n".join(body), "Каждая строка = 100%"
+
+RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
              "beforeafter": r_beforeafter, "matchup": r_matchup, "badge": r_badge,
              "timeline": r_timeline, "digest": r_digest}
 
@@ -862,10 +910,11 @@ def build(spec):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("spec", help="path to JSON spec")
+    ap.add_argument("spec", help="path to JSON spec, or '-' to read the spec from stdin")
     ap.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
-    spec = json.loads(pathlib.Path(a.spec).read_text(encoding="utf-8"))
+    raw = sys.stdin.read() if a.spec == "-" else pathlib.Path(a.spec).read_text(encoding="utf-8")
+    spec = json.loads(raw)
     svg = build(spec)
     pathlib.Path(a.out).write_text(svg, encoding="utf-8")
     print(f"{a.out}: {len(svg.encode())/1024:.0f} KB")
