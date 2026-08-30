@@ -95,14 +95,21 @@ def icon_uri(name):
     die(f"иконка/картинка не найдена: {name} (см. assets/datauri или укажи путь к файлу)")
 
 def inline_image(path, max_kb=100, thumb_w=480):
-    """Inline a local image; big ones are downscaled via sips first."""
+    """Inline a local image; big ones are downscaled via sips first.
+
+    Photos stay JPEG (a PNG re-encode of a photo is ~10x heavier);
+    webp always becomes PNG so resvg can render the PNG export.
+    """
     if path.suffix.lower() not in MIME:
         die(f"неподдерживаемый формат картинки: {path}")
     src = path
     if path.stat().st_size > max_kb * 1024 or path.suffix.lower() == ".webp":
-        tmp = pathlib.Path(tempfile.mkstemp(suffix=".png")[1])
-        subprocess.run(["sips", "-s", "format", "png", "--resampleWidth", str(thumb_w),
-                        str(path), "--out", str(tmp)], check=True, capture_output=True)
+        fmt = "png" if path.suffix.lower() in (".webp", ".png") else "jpeg"
+        tmp = pathlib.Path(tempfile.mkstemp(suffix="." + ("png" if fmt == "png" else "jpg"))[1])
+        cmd = ["sips", "-s", "format", fmt, "--resampleWidth", str(thumb_w)]
+        if fmt == "jpeg":
+            cmd += ["-s", "formatOptions", "65"]
+        subprocess.run(cmd + [str(path), "--out", str(tmp)], check=True, capture_output=True)
         src = tmp
     data = src.read_bytes()
     return f"data:{MIME[src.suffix.lower()]};base64,{base64.b64encode(data).decode()}"
@@ -356,8 +363,8 @@ def r_line(spec):
     d = spec["data"]
     xlabels, series = d["xlabels"], d["series"]
     allv = [v for s in series for v in s["values"]]
-    vmin = spec.get("vmin", min(allv) - (max(allv) - min(allv)) * 0.15)
-    vmax = spec.get("vmax", max(allv) + (max(allv) - min(allv)) * 0.2)
+    vmin = spec.get("vmin", round(min(allv) - (max(allv) - min(allv)) * 0.15, 1))
+    vmax = spec.get("vmax", round(max(allv) + (max(allv) - min(allv)) * 0.2, 1))
     unit = spec.get("unit", "%")
     H = 450
     PX0, PX1, PY0, PY1 = 100, 740, H - 80, 150
