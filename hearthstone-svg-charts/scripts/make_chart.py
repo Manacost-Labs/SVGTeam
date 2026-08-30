@@ -83,7 +83,7 @@ def icon_tag(name, x, y, size=26, ring=True):
                 f'fill="none" stroke="url(#goldEdge)" stroke-width="1" opacity="0.55"/>')
     return tag
 
-def icon_uri(name):
+def icon_uri(name, photo=False):
     for cand in (f"class-{name}.webp.txt", f"{name}.webp.txt", f"{name}.png.txt",
                  f"{name}.jpg.txt", f"{name}.txt"):
         p = DU / cand
@@ -91,10 +91,10 @@ def icon_uri(name):
             return p.read_text().strip()
     p = pathlib.Path(name).expanduser()
     if p.exists():
-        return inline_image(p)
+        return inline_image(p, force_jpeg=photo)
     die(f"иконка/картинка не найдена: {name} (см. assets/datauri или укажи путь к файлу)")
 
-def inline_image(path, max_kb=100, thumb_w=480):
+def inline_image(path, max_kb=100, thumb_w=480, force_jpeg=False):
     """Inline a local image; big ones are downscaled via sips first.
 
     Photos stay JPEG (a PNG re-encode of a photo is ~10x heavier);
@@ -103,8 +103,12 @@ def inline_image(path, max_kb=100, thumb_w=480):
     if path.suffix.lower() not in MIME:
         die(f"неподдерживаемый формат картинки: {path}")
     src = path
-    if path.stat().st_size > max_kb * 1024 or path.suffix.lower() == ".webp":
-        fmt = "png" if path.suffix.lower() in (".webp", ".png") else "jpeg"
+    ext = path.suffix.lower()
+    if path.stat().st_size > max_kb * 1024 or ext == ".webp" or (force_jpeg and ext != ".jpg"):
+        fmt = "png" if ext == ".webp" else "jpeg"
+        if ext == ".png" and not force_jpeg:
+            ctype = path.read_bytes()[25]        # PNG colour type: 4/6 carry alpha
+            fmt = "png" if ctype in (4, 6) else "jpeg"
         tmp = pathlib.Path(tempfile.mkstemp(suffix="." + ("png" if fmt == "png" else "jpg"))[1])
         cmd = ["sips", "-s", "format", fmt, "--resampleWidth", str(thumb_w)]
         if fmt == "jpeg":
@@ -617,6 +621,8 @@ def r_timeline(spec):
 
 def r_digest(spec):
     items = spec["data"]
+    if spec.get("compact", len(items) > 6):
+        return r_digest_compact(spec)
     IH, PAD = 104, 118
     H = 128 + len(items) * PAD + 44
     body = []
@@ -624,7 +630,7 @@ def r_digest(spec):
     for i, it in enumerate(items):
         # thumb 168x94 in deck-border mini frame
         if it.get("image"):
-            uri = icon_uri(it["image"])
+            uri = icon_uri(it["image"], photo=True)
             body.append(f'<defs><clipPath id="dg{i}"><rect x="52" y="{y+6}" width="156" height="{IH-22}" rx="4"/></clipPath></defs>'
                         f'<image href="{uri}" x="52" y="{y+6}" width="156" height="{IH-22}" preserveAspectRatio="xMidYMid slice" clip-path="url(#dg{i})"/>')
         else:
@@ -643,6 +649,39 @@ def r_digest(spec):
             body.append(f'<text x="238" y="{y+48+li*24}" font-family="{SANS}" font-size="17" font-weight="600" fill="{INK}">{esc(ln)}</text>')
         if i != len(items) - 1:
             body.append(f'<rect x="44" y="{y+PAD-11}" width="712" height="1.5" fill="#5f371d" opacity="0.35"/>')
+        y += PAD
+    return 800, H, "\n".join(body), ""
+
+def r_digest_compact(spec):
+    """Dense digest for 7+ items: one-line titles, small thumbs."""
+    items = spec["data"]
+    PAD = 84
+    H = 128 + len(items) * PAD + 36
+    body = []
+    y = 128
+    for i, it in enumerate(items):
+        if it.get("image"):
+            uri = icon_uri(it["image"], photo=True)
+            body.append(f'<defs><clipPath id="dgc{i}"><rect x="52" y="{y+7}" width="108" height="56" rx="3"/></clipPath></defs>'
+                        f'<image href="{uri}" x="52" y="{y+7}" width="108" height="56" preserveAspectRatio="xMidYMid slice" clip-path="url(#dgc{i})"/>')
+        else:
+            body.append(f'<rect x="52" y="{y+7}" width="108" height="56" rx="3" fill="{INK}" opacity="0.08"/>'
+                        f'<image href="{icon_uri("mana")}" x="92" y="{y+13}" width="28" height="36" opacity="0.7"/>')
+        body.append(nine_slice("deck-border.png", 45, y, 122, 70, 12, uid=f"c{i}"))
+        cat = it.get("category", "")
+        if cat:
+            catw = text_w(cat, 12) + 18
+            ccol = "#8d171d" if it.get("theme", spec.get("theme", "arena")) == "arena" else "#3d2335"
+            body.append(f'<rect x="186" y="{y+6}" width="{catw:.0f}" height="19" rx="9.5" fill="{ccol}"/>'
+                        f'<text x="{186+catw/2:.0f}" y="{y+19.5}" text-anchor="middle" font-family="{SANS}" font-size="12" fill="{CREAM}">{esc(cat)}</text>')
+        if it.get("date"):
+            body.append(f'<text x="754" y="{y+20}" text-anchor="end" font-family="{SANS}" font-size="13" fill="{MUTED}">{esc(it["date"])}</text>')
+        title = str(it["title"])
+        if len(title) > 56:
+            title = title[:55].rstrip() + "…"
+        body.append(f'<text x="186" y="{y+50}" font-family="{SANS}" font-size="15" font-weight="600" fill="{INK}">{esc(title)}</text>')
+        if i != len(items) - 1:
+            body.append(f'<rect x="44" y="{y+PAD-8}" width="712" height="1.5" fill="#5f371d" opacity="0.3"/>')
         y += PAD
     return 800, H, "\n".join(body), ""
 
