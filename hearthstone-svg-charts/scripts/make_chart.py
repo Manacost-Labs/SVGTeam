@@ -794,7 +794,11 @@ def r_radar(spec):
 
 
 def r_stackbars(spec):
-    """100%-стек: каждая строка делится на сегменты (доли тем, голосов, ответов)."""
+    """100%-стек с лентами перетекания между строками (мини-санкей).
+
+    Ленты показывают, как доля темы меняется от строки к строке —
+    главный сюжет такого графика виден без арифметики в уме.
+    """
     rows = spec["data"]
     names = []
     for r in rows:
@@ -804,9 +808,10 @@ def r_stackbars(spec):
     colors = {n: ("#a89274" if n.strip().lower() == "прочее" else SERIES[i % len(SERIES)])
               for i, n in enumerate(names)}
     colors.update(spec.get("colors", {}))
-    X0, TRACK, BH, STEP = 220, 500, 34, 62
+    X0, TRACK, BH, GAP = 214, 540, 40, 44
+    STEP = BH + GAP
     y0 = 128
-    # легенда сверху, с переносом на новые строки
+    # легенда с переносом
     body, lx, lrow = [], 46, 0
     for n in names:
         w = 20 + text_w(n, 13) + 22
@@ -816,25 +821,60 @@ def r_stackbars(spec):
         body.append(f'<rect x="{lx}" y="{ly}" width="14" height="14" rx="4" fill="{colors[n]}" stroke="#5d3f12" stroke-width="0.6"/>'
                     f'<text x="{lx+20}" y="{ly+12}" font-family="{SANS}" font-size="13" fill="{INK}">{esc(n)}</text>')
         lx += w
-    y = y0 + 22 + lrow * 24
+    y_first = y0 + 26 + lrow * 24
+    # границы сегментов по строкам: bounds[i][name] = (x_start, x_end)
+    bounds = []
     for r in rows:
         total = sum(s["value"] for s in r["segments"]) or 1
-        body.append(f'<text x="{X0-14}" y="{y+22}" text-anchor="end" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(r["label"])}</text>')
+        b, x = {}, X0
+        for s in r["segments"]:
+            w = TRACK * s["value"] / total
+            b[s["name"]] = (x, x + w)
+            x += w
+        bounds.append(b)
+    # ленты перетекания — рисуются ПОД полосами
+    for i in range(len(rows) - 1):
+        ya = y_first + i * STEP + BH
+        yb = y_first + (i + 1) * STEP
+        mid = (ya + yb) / 2
+        for n in names:
+            if n not in bounds[i] or n not in bounds[i + 1]:
+                continue
+            a0, a1 = bounds[i][n]
+            b0, b1 = bounds[i + 1][n]
+            if a1 - a0 < 0.5 and b1 - b0 < 0.5:
+                continue
+            body.append(f'<path d="M {a0:.1f} {ya} C {a0:.1f} {mid} {b0:.1f} {mid} {b0:.1f} {yb} '
+                        f'L {b1:.1f} {yb} C {b1:.1f} {mid} {a1:.1f} {mid} {a1:.1f} {ya} Z" '
+                        f'fill="{colors[n]}" opacity="0.17"/>')
+    # полосы
+    for i, r in enumerate(rows):
+        y = y_first + i * STEP
+        total = sum(s["value"] for s in r["segments"]) or 1
+        body.append(f'<defs><clipPath id="sb{i}"><rect x="{X0}" y="{y}" width="{TRACK}" height="{BH}" rx="6"/></clipPath></defs>')
+        body.append(f'<text x="{X0-16}" y="{y+18}" text-anchor="end" font-family="{SERIF}" font-size="16" fill="{INK}">{serif_text(r["label"])}</text>')
+        if r.get("sub"):
+            body.append(f'<text x="{X0-16}" y="{y+35}" text-anchor="end" font-family="{SANS}" font-size="12" fill="{MUTED}">{esc(r["sub"])}</text>')
+        seg_tags = []
         x = X0
         for s in r["segments"]:
             w = TRACK * s["value"] / total
             if w <= 0:
                 continue
-            body.append(f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{BH}" fill="{colors[s["name"]]}" stroke="#ead6a7" stroke-width="1.5"/>'
-                        f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="10" fill="#ffffff" opacity="0.16"/>')
+            seg_tags.append(f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="{BH}" fill="{colors[s["name"]]}"/>'
+                            f'<rect x="{x:.1f}" y="{y}" width="{w:.1f}" height="12" fill="#ffffff" opacity="0.18"/>'
+                            f'<rect x="{x:.1f}" y="{y+BH-9}" width="{w:.1f}" height="9" fill="#000000" opacity="0.12"/>')
+            if x > X0:
+                seg_tags.append(f'<line x1="{x:.1f}" y1="{y}" x2="{x:.1f}" y2="{y+BH}" stroke="#ead6a7" stroke-width="1.6"/>')
             pct = s["value"] / total * 100
-            if w >= 44:
-                body.append(f'<text x="{x+w/2:.1f}" y="{y+22}" text-anchor="middle" font-family="{SERIF}" font-size="13.5" '
-                            f'fill="{CREAM}" stroke="#00000055" stroke-width="0" >{serif_text(f"{pct:.0f}%")}</text>')
+            if w >= 42:
+                seg_tags.append(f'<text x="{x+w/2:.1f}" y="{y+BH/2+5.5}" text-anchor="middle" font-family="{SERIF}" '
+                                f'font-size="14.5" fill="{CREAM}">{serif_text(f"{pct:.0f}%")}</text>')
             x += w
-        body.append(f'<rect x="{X0}" y="{y}" width="{TRACK}" height="{BH}" rx="3" fill="none" stroke="#5d0d13" stroke-width="1" opacity="0.35"/>')
-        y += STEP
-    return 800, y + 66, "\n".join(body), "Каждая строка = 100%"
+        body.append(f'<g clip-path="url(#sb{i})">{"".join(seg_tags)}</g>')
+        body.append(f'<rect x="{X0}" y="{y}" width="{TRACK}" height="{BH}" rx="6" fill="none" stroke="#5d0d13" stroke-width="1.2" opacity="0.45"/>'
+                    f'<rect x="{X0+1}" y="{y+1}" width="{TRACK-2}" height="{BH-2}" rx="5" fill="none" stroke="url(#goldEdge)" stroke-width="0.8" opacity="0.35"/>')
+    return 800, y_first + len(rows) * STEP - GAP + 78, "\n".join(body), "Каждая строка = 100%"
 
 RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
              "beforeafter": r_beforeafter, "matchup": r_matchup, "badge": r_badge,
