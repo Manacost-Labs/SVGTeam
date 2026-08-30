@@ -1034,23 +1034,24 @@ def r_mulligan(spec):
     if len(opps) > 7: die("mulligan: максимум 7 оппонентов")
     LX = 320
     CW = min(74, (752 - LX) // len(opps))
-    TY = 190
+    TY = 168
     RH = 46
     H = TY + len(rows) * RH + 64
     VER = {"keep": ("#2f7a3e", "#1d5229", "✓"), "if": ("#b98a2f", "#7d5a1a", "?"),
            "toss": ("#a33a3a", "#6e2222", "✗")}
-    body = ['<defs><linearGradient id="manaG" x1="0" y1="0" x2="0" y2="1">'
-            '<stop offset="0" stop-color="#2f83d6"/><stop offset="0.5" stop-color="#1f6fb8"/>'
-            '<stop offset="1" stop-color="#0d3a66"/></linearGradient></defs>']
-    # легенда — те же щитки, что в ячейках
+    mana = icon_uri("mana")
+    body = []
+    # легенда — внизу, под таблицей; верх остаётся чистым
+    ly = TY + len(rows) * RH + 8
     lx = 46
     for k, label in (("keep", "держать"), ("if", "по ситуации"), ("toss", "кидать")):
         col, edge, sym = VER[k]
-        body.append(f'<rect x="{lx}" y="{TY-72}" width="24" height="24" rx="7" fill="{col}" stroke="{edge}" stroke-width="1.4"/>'
-                    f'<rect x="{lx}" y="{TY-72}" width="24" height="10" rx="5" fill="#ffffff" opacity="0.22"/>'
-                    f'<text x="{lx+12}" y="{TY-55}" text-anchor="middle" font-family="{SANS}" font-size="13" font-weight="700" fill="{CREAM}">{sym}</text>'
-                    f'<text x="{lx+32}" y="{TY-54}" font-family="{SANS}" font-size="13.5" fill="{INK}">{label}</text>')
-        lx += 32 + text_w(label, 13.5) + 28
+        body.append(f'<rect x="{lx}" y="{ly}" width="24" height="24" rx="7" fill="{col}" stroke="{edge}" stroke-width="1.4"/>'
+                    f'<rect x="{lx}" y="{ly}" width="24" height="10" rx="5" fill="#ffffff" opacity="0.22"/>'
+                    f'<text x="{lx+12}" y="{ly+17}" text-anchor="middle" font-family="{SANS}" font-size="13" font-weight="700" fill="{CREAM}">{sym}</text>'
+                    f'<text x="{lx+32}" y="{ly+17}" font-family="{SANS}" font-size="13.5" fill="{INK}">{label}</text>')
+        lx += 32 + text_w(label, 13.5) + 24
+    body.append(f'<text x="{320-14}" y="{TY-28}" text-anchor="end" font-family="Georgia, serif" font-style="italic" font-size="13" fill="{MUTED}">против →</text>')
     # дорожки колонок (чётные тонированы) + иконки оппонентов в кольцах
     bot = TY + len(rows) * RH - 6
     for j, o in enumerate(opps):
@@ -1058,13 +1059,14 @@ def r_mulligan(spec):
         if j % 2 == 0:
             body.append(f'<rect x="{x0+3}" y="{TY-52}" width="{CW-6}" height="{bot-(TY-52)}" rx="9" fill="{INK}" opacity="0.05"/>')
         body.append(icon_tag(o, x0 + CW / 2 - 15, TY - 48, 30))
-    body.append(f'<text x="{LX-14}" y="{TY-28}" text-anchor="end" font-family="Georgia, serif" font-style="italic" font-size="13" fill="{MUTED}">против →</text>')
     # деревянный разделитель под шапкой
     body.append(f'<rect x="44" y="{TY-10}" width="712" height="2" fill="#5f371d" opacity="0.5"/>'
                 f'<rect x="395.5" y="{TY-14.5}" width="9" height="9" rx="1.5" fill="url(#goldEdge)" stroke="#5d3f12" stroke-width="0.8" transform="rotate(45 400 {TY-10+1})"/>')
     for i, r in enumerate(rows):
         y = TY + i * RH
-        body.append(_mana_crystal(48, y + 4, r.get("cost", "")))
+        body.append(f'<image href="{mana}" x="46" y="{y+1}" width="30" height="30"/>'
+                    f'<text x="61" y="{y+22}" text-anchor="middle" font-family="{SERIF}" font-size="14.5" '
+                    f'fill="#ffffff" stroke="#0a2c50" stroke-width="2.6" paint-order="stroke">{serif_text(r.get("cost", ""))}</text>')
         name = str(r["card"])
         if len(name) > 22: name = name[:21].rstrip() + "…"
         body.append(f'<text x="84" y="{y+23}" font-family="{SERIF}" font-size="15.5" fill="{INK}">{serif_text(name)}</text>')
