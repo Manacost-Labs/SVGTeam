@@ -949,8 +949,8 @@ def r_versus(spec):
     HALF, CXL, CXR = 168, 388, 412   # встречные дорожки от центра
     for i, m in enumerate(metrics):
         y = rows_y0 + i * 56
-        body.append(f'<text x="400" y="{y-8}" text-anchor="middle" font-family="{SANS}" '
-                    f'font-size="13" fill="{MUTED}">{esc(m["label"])}</text>')
+        body.append(f'<text x="400" y="{y-8}" text-anchor="middle" font-family="{SERIF}" '
+                    f'font-size="14" letter-spacing="0.4" fill="{MUTED}">{serif_text(m["label"])}</text>')
         try:
             lv, rv = float(m["left"]), float(m["right"])
             numeric = True
