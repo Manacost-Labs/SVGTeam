@@ -287,10 +287,20 @@ def r_bars(spec):
     vmin = spec.get("vmin", math.floor(min(vals) - 2))
     vmax = spec.get("vmax", math.ceil(max(vals) + 1))
     unit = spec.get("unit", "%")
-    H = 118 + len(rows) * 38 + 76
-    X0, TRACK = 230, 480
+    extra_header = spec.get("extra_header")   # optional 2nd text column (e.g. popularity)
+    H = 118 + len(rows) * 38 + 76 + (24 if extra_header else 0)
+    # label column adapts to the longest name (up to 320), rest is truncated
+    max_lab = max(len(str(r["label"])) * 8.2 for r in rows)
+    X0 = min(320, max(230, int(82 + max_lab + 12)))
+    track_end = 656 if extra_header else 710
+    TRACK = track_end - X0
+    lab_chars = int((X0 - 82 - 12) / 7.6)   # looser than sizing: truncate only real overflow
     y0 = 118
     body = []
+    if extra_header:
+        body.append(f'<text x="754" y="{y0+6}" text-anchor="end" font-family="{SANS}" '
+                    f'font-size="13" font-weight="600" fill="{MUTED}">{esc(extra_header)}</text>')
+        y0 += 24
     show_avg = spec.get("average", True) and len(rows) > 2
     if show_avg:
         avg = sum(vals) / len(vals)
@@ -305,7 +315,8 @@ def r_bars(spec):
         leader = r.get("leader", i == 0 and spec.get("highlight_leader", True))
         stroke = f'stroke="{GOLD}" stroke-width="1.5"' if leader else 'stroke="#5d0d13" stroke-width="1"'
         color = r.get("color", "#8d171d" if spec.get("theme", "arena") == "arena" else "#8f536d")
-        label = esc(r["label"])
+        raw = str(r["label"])
+        label = esc(raw if len(raw) <= lab_chars else raw[:lab_chars - 1].rstrip() + "…")
         icon = icon_tag(r["icon"], 46, y) if r.get("icon") else ""
         star = f'<text x="78" y="{y+18}" font-size="12" fill="{GOLD}">★</text>' if leader else ""
         tx = 92 if leader else 82
@@ -320,7 +331,7 @@ def r_bars(spec):
                     f'stroke="#5d3f12" stroke-width="1"/>')
             mw = text_w(val, 14) + 18
             mx = X0 + w + 12
-            if mx + mw > 754:
+            if mx + mw > (676 if extra_header else 754):
                 mx = X0 + w - mw - 14
             bar += (f'\n  <rect x="{mx:.1f}" y="{y+2}" width="{mw:.1f}" height="22" rx="11" '
                     f'fill="#5d0d13" stroke="url(#goldEdge)" stroke-width="1.2"/>'
@@ -332,6 +343,9 @@ def r_bars(spec):
             if w > TRACK - 64:
                 vattr = f'x="{X0+w-8:.1f}" text-anchor="end" fill="{CREAM}"'
             bar += f'\n  <text {vattr} y="{y+18}" font-size="14" font-weight="600">{val}</text>'
+        if extra_header and r.get("extra") is not None:
+            bar += (f'\n  <text x="754" y="{y+18}" text-anchor="end" font-size="14" '
+                    f'fill="{MUTED}">{esc(r["extra"])}</text>')
         body.append(f'''<g font-family="{SANS}">{icon}
   <text x="{tx}" y="{y+18}" font-size="14" fill="{INK}">{label}</text>{star}
   {bar}
