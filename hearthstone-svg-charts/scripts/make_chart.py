@@ -510,7 +510,7 @@ def r_beforeafter(spec):
         d = r["after"] - r["before"]
         dcol, arrow, sign = (POS, "▲", "+") if d >= 0 else (NEG, "▼", "−")
         body.append(f'''<g font-family="{SANS}">
-  <text x="46" y="{y+22}" font-size="14" fill="{INK}">{esc(r["label"])}</text>
+  <text x="46" y="{y+22}" font-family="{SERIF}" font-size="15" fill="{INK}">{serif_text(r["label"])}</text>
   <rect x="{X0}" y="{y}" width="{TRACK}" height="14" rx="3" fill="{INK}" opacity="0.06"/>
   <rect x="{X0}" y="{y}" width="{bw(r["before"]):.1f}" height="14" rx="3" fill="{MUTED}" opacity="0.55"/>
   <text x="{X0+bw(r["before"])+8:.1f}" y="{y+11}" font-size="13" fill="{MUTED}">{r["before"]}{unit}</text>
