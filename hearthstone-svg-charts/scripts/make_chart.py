@@ -311,7 +311,7 @@ def r_bars(spec):
     H = 118 + len(rows) * 38 + 76 + (24 if extra_header else 0)
     # label column adapts to the longest name (up to 320), rest is truncated
     max_lab = max(len(str(r["label"])) * 9.0 for r in rows)
-    X0 = min(320, max(230, int(82 + max_lab + 12)))
+    X0 = min(380, max(230, int(82 + max_lab + 12)))
     track_end = 656 if extra_header else 710
     TRACK = track_end - X0
     lab_chars = int((X0 - 82 - 12) / 8.3)   # looser than sizing: truncate only real overflow
