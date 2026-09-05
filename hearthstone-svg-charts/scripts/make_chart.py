@@ -108,7 +108,9 @@ def icon_tag(name, x, y, size=26, ring=True):
     return tag
 
 def icon_uri(name, photo=False):
-    for cand in (f"class-{name}.webp.txt", f"{name}.webp.txt", f"{name}.png.txt",
+    # PNG-двойники первыми: санитайзеры SVG (WordPress Safe SVG) режут data:image/webp
+    for cand in (f"class-{name}.webp.pngtwin.txt", f"{name}.webp.pngtwin.txt",
+                 f"class-{name}.webp.txt", f"{name}.webp.txt", f"{name}.png.txt",
                  f"{name}.jpg.txt", f"{name}.txt"):
         p = DU / cand
         if p.exists():
@@ -318,7 +320,11 @@ def footer(spec, H, extra=""):
     return "\n".join(out)
 
 def doc(W, H, label, body):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" role="img"\n'
+    # картинки через xlink:href: его понимают все браузеры, вьюеры и санитайзеры
+    # (дублировать href нельзя — data-URI удвоили бы вес файла)
+    body = re.sub(r'<image href="', '<image xlink:href="', body)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+            f'viewBox="0 0 {W} {H}" role="img"\n'
             f'     aria-label="{esc(label)}">\n{body}\n</svg>\n')
 
 # ---------------------------------------------------------------- renderers
