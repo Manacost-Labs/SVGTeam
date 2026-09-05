@@ -42,10 +42,15 @@ def serif_text(s):
     return esc(s)
 
 DEFINED: set = set()   # id уже вшитых symbol/image — повторные вставки идут через <use>
+DEDUPE = False         # spec "dedupe": true — только для страниц, где <use> точно не режется
 
 def img_ref(name, x, y, w, h, photo=False):
     """Картинка по имени: первый раз — <symbol> с data-URI, дальше — <use>.
     Экономит десятки КБ, когда одна иконка повторяется в каждой строке."""
+    if not DEDUPE:
+        # WordPress/TinyMCE вырезает <symbol>/<use> внутри инлайн-SVG —
+        # по умолчанию картинки вставляются напрямую, надёжно везде
+        return f'<image href="{icon_uri(name, photo=photo)}" x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}"/>'
     sid = "im-" + re.sub(r"[^A-Za-z0-9_-]", "_", str(name))[-40:]
     out = ""
     if sid not in DEFINED:
@@ -1195,8 +1200,10 @@ def anim_style():
 </style>"""
 
 def build(spec):
+    global DEDUPE
     DISPLAY_CHARS.clear()
     DEFINED.clear()
+    DEDUPE = bool(spec.get("dedupe", False))
     t = spec.get("type")
     if t not in RENDERERS:
         die(f"неизвестный type '{t}'; доступны: {', '.join(RENDERERS)}")
