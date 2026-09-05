@@ -1086,7 +1086,42 @@ def r_mulligan(spec):
             body.append(f'<line x1="44" y1="{y+RH-6}" x2="756" y2="{y+RH-6}" stroke="{MUTED}" stroke-width="1" opacity="0.18"/>')
     return 800, H, "\n".join(body), None
 
-RENDERERS = {"bars": r_bars, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "versus": r_versus, "quote": r_quote, "mulligan": r_mulligan, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
+
+def r_facts(spec):
+    """Полоса «факты»: 2–4 медальона с крупным числом и подписью."""
+    items = spec["data"][:4]
+    n = len(items)
+    H = 340
+    GAP = 22
+    PW = min(250, int((700 - (n - 1) * GAP) / n))   # 4 медальона → 158, 3 → 218
+    PH = 136
+    total = n * PW + (n - 1) * GAP
+    x = 400 - total / 2
+    y = 140
+    body = []
+    for i, it in enumerate(items):
+        tone = it.get("tone", "neutral")
+        vcol = {"pos": "#9fd39a", "neg": "#f0a0a0"}.get(tone, CREAM)
+        body.append(f'<rect x="{x:.0f}" y="{y}" width="{PW}" height="{PH}" rx="14" fill="#5d0d13"/>'
+                    f'<rect x="{x:.0f}" y="{y}" width="{PW}" height="{PH}" rx="14" fill="url(#bevelTop)" opacity="0.55"/>'
+                    f'<rect x="{x+1:.0f}" y="{y+1}" width="{PW-2}" height="{PH-2}" rx="13" fill="none" stroke="url(#goldEdge)" stroke-width="1.6"/>')
+        if it.get("icon"):
+            body.append(icon_tag(it["icon"], x + 12, y + 12, 26))
+        val = str(it["value"])
+        vsize = 34 if len(val) <= 6 else 26 if len(val) <= 10 else 20
+        body.append(f'<text x="{x+PW/2:.0f}" y="{y+60}" text-anchor="middle" font-family="{SERIF}" '
+                    f'font-size="{vsize}" fill="{vcol}">{serif_text(val)}</text>')
+        for li, ln in enumerate(wrap(it["label"], 12, PW - 22, 3)):
+            body.append(f'<text x="{x+PW/2:.0f}" y="{y+84+li*15}" text-anchor="middle" font-family="{SANS}" '
+                        f'font-size="12" fill="#d9ab49">{esc(ln)}</text>')
+        x += PW + GAP
+    if spec.get("note"):
+        for li, ln in enumerate(wrap(spec["note"], 14, 660, 2)):
+            body.append(f'<text x="400" y="{y+PH+40+li*20}" text-anchor="middle" font-family="{SANS}" '
+                        f'font-size="14" fill="{INK}">{esc(ln)}</text>')
+    return 800, H, "\n".join(body), None
+
+RENDERERS = {"bars": r_bars, "facts": r_facts, "scatter": r_scatter, "radar": r_radar, "stackbars": r_stackbars, "author": r_author, "versus": r_versus, "quote": r_quote, "mulligan": r_mulligan, "line": r_line, "donut": r_donut, "tierlist": r_tierlist,
              "beforeafter": r_beforeafter, "matchup": r_matchup, "badge": r_badge,
              "timeline": r_timeline, "digest": r_digest}
 
@@ -1147,7 +1182,7 @@ def build(spec):
     t = spec.get("type")
     if t not in RENDERERS:
         die(f"неизвестный type '{t}'; доступны: {', '.join(RENDERERS)}")
-    finish = spec.get("finish", "quiet" if t in ("badge", "digest", "author", "quote") else "parade")
+    finish = spec.get("finish", "quiet" if t in ("badge", "digest", "author", "quote", "facts") else "parade")
     W, H, content, scale_note = RENDERERS[t](spec)
     if t == "badge":
         return doc(W, H, spec.get("title", "Бейдж"), font_face_style() + "\n" + content)
