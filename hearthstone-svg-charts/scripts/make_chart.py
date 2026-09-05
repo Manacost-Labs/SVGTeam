@@ -498,7 +498,10 @@ def r_beforeafter(spec):
     vmax = spec.get("vmax", math.ceil(max(allv) + 1))
     unit = spec.get("unit", "%")
     labels = spec.get("labels", ["до патча", "после патча"])
-    X0, TRACK = 230, 400
+    # колонка подписей растёт под самое длинное имя (Belwe ~9 ед./символ), до 340
+    max_lab = max(len(str(r["label"])) * 9.0 for r in rows)
+    X0 = min(340, max(230, int(46 + max_lab + 14)))
+    TRACK = 640 - X0
     def bw(v): return TRACK * (v - vmin) / (vmax - vmin)
     y = 152
     body = [f'''<g font-family="{SANS}" font-size="13">
