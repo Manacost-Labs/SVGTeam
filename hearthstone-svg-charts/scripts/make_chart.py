@@ -24,6 +24,7 @@ import base64
 import json
 import math
 import pathlib
+import re
 import struct
 import subprocess
 import sys
@@ -39,6 +40,19 @@ DISPLAY_CHARS: set = set()   # chars rendered with SERIF -> font subset
 def serif_text(s):
     DISPLAY_CHARS.update(str(s))
     return esc(s)
+
+DEFINED: set = set()   # id уже вшитых symbol/image — повторные вставки идут через <use>
+
+def img_ref(name, x, y, w, h, photo=False):
+    """Картинка по имени: первый раз — <symbol> с data-URI, дальше — <use>.
+    Экономит десятки КБ, когда одна иконка повторяется в каждой строке."""
+    sid = "im-" + re.sub(r"[^A-Za-z0-9_-]", "_", str(name))[-40:]
+    out = ""
+    if sid not in DEFINED:
+        DEFINED.add(sid)
+        out = (f'<symbol id="{sid}" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">'
+               f'<image href="{icon_uri(name, photo=photo)}" width="100" height="100"/></symbol>')
+    return out + f'<use href="#{sid}" x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}"/>'
 INK, MUTED = "#30251c", "#735e49"
 CREAM = "#f7e8bf"
 SERIES = ["#8d171d", "#8f536d", "#2f7a3e", "#b98a2f", "#735e49", "#3f6f6a"]
@@ -82,7 +96,7 @@ def wrap(s, size, max_w, max_lines=2):
 
 def icon_tag(name, x, y, size=26, ring=True):
     """Game icon with a subtle gold ring (never tint the icon itself)."""
-    tag = f'<image href="{icon_uri(name)}" x="{x:g}" y="{y:g}" width="{size}" height="{size}"/>'
+    tag = img_ref(name, x, y, size, size)
     if ring:
         tag += (f'<rect x="{x-1.2:g}" y="{y-1.2:g}" width="{size+2.4}" height="{size+2.4}" rx="{size*0.24:g}" '
                 f'fill="none" stroke="url(#goldEdge)" stroke-width="1" opacity="0.55"/>')
@@ -212,7 +226,7 @@ def png_size(path):
 def nine_slice(asset, x, y, w, h, c, uid=""):
     uri = (DU / (asset + ".txt")).read_text().strip()
     iw, ih = png_size(ROOT / "assets" / asset)
-    img_id = "f9-" + asset.split(".")[0] + uid
+    img_id = "f9-" + asset.split(".")[0]
     regions = [
         (x, y, c, c, 0, 0, c, c), (x + c, y, w - 2*c, c, c, 0, iw - 2*c, c),
         (x + w - c, y, c, c, iw - c, 0, c, c),
@@ -222,7 +236,10 @@ def nine_slice(asset, x, y, w, h, c, uid=""):
         (x + c, y + h - c, w - 2*c, c, c, ih - c, iw - 2*c, c),
         (x + w - c, y + h - c, c, c, iw - c, ih - c, c, c),
     ]
-    out = [f'<g><defs><image id="{img_id}" href="{uri}" width="{iw}" height="{ih}"/></defs>']
+    out = ["<g>"]
+    if img_id not in DEFINED:
+        DEFINED.add(img_id)
+        out.append(f'<defs><image id="{img_id}" href="{uri}" width="{iw}" height="{ih}"/></defs>')
     for dx, dy, dw, dh, sx, sy, sw, sh in regions:
         out.append(f'<svg x="{dx:g}" y="{dy:g}" width="{dw:g}" height="{dh:g}" '
                    f'viewBox="{sx:g} {sy:g} {sw:g} {sh:g}" preserveAspectRatio="none" '
@@ -1042,7 +1059,6 @@ def r_mulligan(spec):
     H = TY + len(rows) * RH + 64
     VER = {"keep": ("#2f7a3e", "#1d5229", "✓"), "if": ("#b98a2f", "#7d5a1a", "?"),
            "toss": ("#a33a3a", "#6e2222", "✗")}
-    mana = icon_uri("mana")
     body = []
     # легенда — внизу, под таблицей; верх остаётся чистым
     ly = TY + len(rows) * RH + 8
@@ -1067,7 +1083,7 @@ def r_mulligan(spec):
                 f'<rect x="395.5" y="{TY-14.5}" width="9" height="9" rx="1.5" fill="url(#goldEdge)" stroke="#5d3f12" stroke-width="0.8" transform="rotate(45 400 {TY-10+1})"/>')
     for i, r in enumerate(rows):
         y = TY + i * RH
-        body.append(f'<image href="{mana}" x="46" y="{y+1}" width="30" height="30"/>'
+        body.append(img_ref("mana", 46, y + 1, 30, 30) +
                     f'<text x="61" y="{y+22}" text-anchor="middle" font-family="{SERIF}" font-size="14.5" '
                     f'fill="#ffffff" stroke="#0a2c50" stroke-width="2.6" paint-order="stroke">{serif_text(r.get("cost", ""))}</text>')
         name = str(r["card"])
@@ -1179,6 +1195,8 @@ def anim_style():
 </style>"""
 
 def build(spec):
+    DISPLAY_CHARS.clear()
+    DEFINED.clear()
     t = spec.get("type")
     if t not in RENDERERS:
         die(f"неизвестный type '{t}'; доступны: {', '.join(RENDERERS)}")

@@ -32,6 +32,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("svg", nargs="+")
     ap.add_argument("-z", "--zoom", type=float, default=2.0)
+    ap.add_argument("--no-quant", action="store_true", help="не сжимать pngquant")
     a = ap.parse_args()
     if not shutil.which("resvg"):
         sys.exit("resvg не найден: brew install resvg")
@@ -50,6 +51,10 @@ def main():
         if hs_font.exists():
             cmd += ["--use-font-file", str(hs_font)]
         subprocess.run(cmd + [str(render_src), str(out)], check=True)
+        if not a.no_quant and shutil.which("pngquant"):
+            # палитра 256 цветов на пергаменте не видна, а вес падает в 3-4 раза
+            subprocess.run(["pngquant", "--force", "--quality", "70-92", "--speed", "1",
+                            "--output", str(out), str(out)], check=False)
         print(f"{out} ({out.stat().st_size/1024:.0f} KB)")
 
 if __name__ == "__main__":
